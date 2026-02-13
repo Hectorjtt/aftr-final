@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation"
 
 export function RegisterForm() {
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -43,17 +44,38 @@ export function RegisterForm() {
 
       if (signUpError) throw signUpError
 
-      // Crear rol de cliente por defecto
+      // Guardar en user_roles: el trigger de Supabase puede crear la fila; si no, hacemos INSERT.
       if (data.user) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: data.user.id,
-            role: 'client',
-          })
+        const row = {
+          user_id: data.user.id,
+          role: 'client' as const,
+          email,
+          phone: phone.trim() || null,
+        }
+        const { error: insertError } = await supabase.from('user_roles').insert(row)
 
-        if (roleError) {
-          console.error('Error al crear rol:', roleError)
+        if (insertError) {
+          // Si falla por fila duplicada (trigger ya creó la fila), solo actualizamos email y teléfono
+          if (insertError.code === '23505') {
+            const { error: updateError } = await supabase
+              .from('user_roles')
+              .update({ email, phone: row.phone })
+              .eq('user_id', data.user!.id)
+            if (updateError) {
+              console.error('Error al actualizar user_roles:', updateError)
+              setError('Cuenta creada, pero no se guardó el perfil. Contacta al administrador.')
+              setLoading(false)
+              return
+            }
+          } else {
+            console.error('Error al guardar en user_roles:', insertError)
+            setError(
+              'Cuenta creada, pero no se pudo guardar tu perfil. Ejecuta en Supabase el SQL de la carpeta supabase/migrations. Error: ' +
+                insertError.message
+            )
+            setLoading(false)
+            return
+          }
         }
       }
 
@@ -105,6 +127,20 @@ export function RegisterForm() {
               required
               className="border-white/20 bg-white/5 text-white"
               placeholder="tu@email.com"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="phone" className="text-white">
+              Teléfono
+            </Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="border-white/20 bg-white/5 text-white"
+              placeholder="Ej: 55 1234 5678"
             />
           </div>
 

@@ -23,12 +23,27 @@ export async function getPendingPurchaseRequests() {
       return { data: [], error: null }
     }
 
-    // Agregar un objeto user con solo el id (el email se puede obtener después si es necesario)
+    // Obtener email y teléfono de user_roles para cada user_id
+    const userIds = [...new Set(data.map(r => r.user_id).filter(Boolean))]
+    let userInfoMap: Record<string, { email: string | null; phone: string | null }> = {}
+    if (userIds.length > 0) {
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('user_id, email, phone')
+        .in('user_id', userIds)
+      if (rolesData) {
+        rolesData.forEach((row: { user_id: string; email: string | null; phone: string | null }) => {
+          userInfoMap[row.user_id] = { email: row.email ?? null, phone: row.phone ?? null }
+        })
+      }
+    }
+
     const dataWithUser = data.map(request => ({
       ...request,
       user: {
         id: request.user_id,
-        email: null // No podemos obtener el email desde el cliente sin una función especial
+        email: userInfoMap[request.user_id]?.email ?? null,
+        phone: userInfoMap[request.user_id]?.phone ?? null
       }
     }))
 

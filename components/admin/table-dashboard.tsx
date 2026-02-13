@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { getAllTickets, moveCoverToTable } from "@/lib/admin"
+import { supabase } from "@/lib/supabase"
 import { eventConfig } from "@/lib/event-config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +21,7 @@ interface Ticket {
   scanned_at: string | null
   created_at: string
   scanned_by: string | null
+  user_id?: string
 }
 
 interface GroupedTable {
@@ -33,6 +35,7 @@ interface GroupedTable {
 
 export function TableDashboard() {
   const [tables, setTables] = useState<GroupedTable[]>([])
+  const [userPhones, setUserPhones] = useState<Record<string, string | null>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [movingCover, setMovingCover] = useState<number | null>(null)
@@ -69,6 +72,20 @@ export function TableDashboard() {
 
       // Filtrar solo tickets aprobados (para ver covers activos)
       const approvedTickets = data.filter((ticket: Ticket) => ticket.status === 'approved' || ticket.status === 'used')
+
+      // Obtener teléfonos de user_roles para cada user_id
+      const userIds = [...new Set((approvedTickets as Ticket[]).map((t) => t.user_id).filter(Boolean))] as string[]
+      const phonesMap: Record<string, string | null> = {}
+      if (userIds.length > 0) {
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('user_id, phone')
+          .in('user_id', userIds)
+        rolesData?.forEach((row: { user_id: string; phone: string | null }) => {
+          phonesMap[row.user_id] = row.phone ?? null
+        })
+      }
+      setUserPhones(phonesMap)
       
       // Agrupar por mesa
       const grouped = approvedTickets.reduce((acc: Record<string, GroupedTable>, ticket: Ticket) => {
@@ -128,6 +145,13 @@ export function TableDashboard() {
       default:
         return null
     }
+  }
+
+  // Mínimo de covers por mesa (igual que en el mapa: pista 12, resto 10)
+  const getMinCovers = (tableId: string) => {
+    const num = parseInt(tableId.replace(/\D/g, ''), 10) || 0
+    const pista = [31, 32, 33, 34, 35, 36, 41, 42, 43, 44, 45, 46]
+    return pista.includes(num) ? 12 : 10
   }
 
   const getStatusBadge = (status: string) => {
@@ -294,8 +318,12 @@ export function TableDashboard() {
             <Users className="h-5 w-5" />
             Resumen General
           </CardTitle>
-          <CardDescription className="text-white/60">
-            Total de mesas con covers: {tables.length}
+          <CardDescription className="text-white/60 space-y-1">
+            <span className="block">Total de mesas con covers: {tables.length}</span>
+            <span className="block">
+              Total de mesas con mínimo de covers o más:{" "}
+              {tables.filter((t) => t.totalCount >= getMinCovers(t.tableId)).length}
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -351,6 +379,11 @@ export function TableDashboard() {
                         <p className="text-xs text-white/60">
                           Código: <span className="font-mono">{cover.qr_code}</span>
                         </p>
+                        {cover.user_id && (userPhones[cover.user_id] != null) && (
+                          <p className="text-xs text-white/50 mt-0.5">
+                            Tel: {userPhones[cover.user_id]}
+                          </p>
+                        )}
                         {cover.scanned_at && (
                           <p className="text-xs text-blue-400 mt-1">
                             Escaneado: {new Date(cover.scanned_at).toLocaleString('es-MX')}

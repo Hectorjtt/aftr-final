@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
-import { getTableStatuses } from "@/lib/tables"
+import { getTableCounts } from "@/lib/tables"
 
 type Table = {
   id: number
@@ -77,19 +77,19 @@ type TableMapProps = {
 }
 
 export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
-  const [occupiedTables, setOccupiedTables] = useState<Record<string, boolean>>({})
+  // Conteo de tickets (aprobados + usados) por mesa. Clave = id numérico ("32", "10", etc.)
+  const [tableCounts, setTableCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
-    loadTableStatuses()
-    // Recargar cada 30 segundos para mantener actualizado
-    const interval = setInterval(loadTableStatuses, 30000)
+    loadTableCounts()
+    const interval = setInterval(loadTableCounts, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  const loadTableStatuses = async () => {
-    const { data } = await getTableStatuses()
+  const loadTableCounts = async () => {
+    const { data } = await getTableCounts()
     if (data) {
-      setOccupiedTables(data)
+      setTableCounts(data)
     }
   }
 
@@ -97,8 +97,12 @@ export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
     return tables.find((t) => t.position.row === row && t.position.col === col)
   }
 
+  // Ocupada = la mesa tiene al menos minCovers tickets aprobados o usados
   const isTableOccupied = (tableId: number) => {
-    return occupiedTables[tableId.toString()] === true
+    const table = tables.find((t) => t.id === tableId)
+    const minCovers = table?.minCovers ?? 1
+    const count = tableCounts[tableId.toString()] ?? 0
+    return count >= minCovers
   }
 
   const getSectionColor = (section: string, tableId: number) => {

@@ -18,7 +18,8 @@ interface PurchaseRequest {
   created_at: string
   user: {
     id: string
-    email: string
+    email: string | null
+    phone: string | null
   } | null
 }
 
@@ -154,7 +155,7 @@ export function PendingPayments() {
                   Mesa {request.table_id} - {request.quantity} {request.quantity === 1 ? 'cover' : 'covers'}
                 </CardTitle>
                 <CardDescription className="text-white/60">
-                  {request.user?.email || `Usuario ID: ${request.user_id?.substring(0, 8)}...` || 'Usuario desconocido'}
+                  {request.user?.phone || request.user?.email || `Usuario ID: ${request.user_id?.substring(0, 8)}...` || 'Usuario desconocido'}
                 </CardDescription>
                 <CardDescription className="text-white/60">
                   {new Date(request.created_at).toLocaleString('es-MX')}
