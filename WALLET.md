@@ -8,7 +8,15 @@ Los clientes con tickets aprobados pueden usar el botón **"Agregar a Wallet"** 
 - Certificado de firma (.pem) y su clave privada.
 - Certificado WWDR de Apple.
 
-## Variables de entorno
+## Mostrar el botón
+
+El botón **"Agregar a Wallet"** está oculto por defecto. Para mostrarlo, añade:
+
+```
+NEXT_PUBLIC_WALLET_ENABLED=true
+```
+
+## Variables de entorno (certificados)
 
 Añade estas variables en tu entorno (por ejemplo en Vercel o `.env.local`):
 
@@ -27,10 +35,6 @@ Para convertir archivos a base64 (en terminal):
 base64 -i certificado.pem | tr -d '\n'  # pegar el resultado en WALLET_SIGNER_CERT
 base64 -i clave.pem | tr -d '\n'        # pegar en WALLET_SIGNER_KEY
 ```
-
-## Sin configurar
-
-Si no configuras estas variables, el botón **"Agregar a Wallet"** seguirá visible, pero al hacer clic el usuario verá el mensaje: *"Agregar a Wallet no está configurado aún."*
 
 ## Documentación Apple
 

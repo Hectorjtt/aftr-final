@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Download, CheckCircle, Clock, XCircle, Smartphone, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { supabase } from "@/lib/supabase"
 
 interface Ticket {
   id: number
@@ -22,7 +23,17 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
   const addToWallet = async () => {
     setWalletLoading(true)
     try {
-      const res = await fetch(`/api/wallet/${ticket.id}`, { credentials: 'include' })
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        alert('Debes iniciar sesión para agregar a Wallet.')
+        return
+      }
+      const headers: Record<string, string> = { Authorization: `Bearer ${session.access_token}` }
+      if (session.refresh_token) headers['X-Refresh-Token'] = session.refresh_token
+      const res = await fetch(`/api/wallet/${ticket.id}`, {
+        credentials: 'include',
+        headers,
+      })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         const msg = data?.error || (res.status === 503 ? 'Agregar a Wallet no está configurado aún.' : 'No se pudo generar el pase.')
@@ -131,20 +142,22 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
                 <Download className="mr-2 h-4 w-4" />
                 Descargar QR
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
-                onClick={addToWallet}
-                disabled={walletLoading}
-              >
-                {walletLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Smartphone className="mr-2 h-4 w-4" />
-                )}
-                Agregar a Wallet
-              </Button>
+              {process.env.NEXT_PUBLIC_WALLET_ENABLED === 'true' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
+                  onClick={addToWallet}
+                  disabled={walletLoading}
+                >
+                  {walletLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Smartphone className="mr-2 h-4 w-4" />
+                  )}
+                  Agregar a Wallet
+                </Button>
+              )}
             </div>
           )}
         </div>

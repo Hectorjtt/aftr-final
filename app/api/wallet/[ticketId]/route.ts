@@ -4,7 +4,7 @@ import { PKPass } from 'passkit-generator'
 import { eventConfig } from '@/lib/event-config'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
@@ -15,7 +15,23 @@ export async function GET(
     }
 
     const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] = null
+
+    const authHeader = request.headers.get('authorization')
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+    const refreshToken = request.headers.get('x-refresh-token')
+
+    if (bearerToken) {
+      const { data: { user: userFromToken } } = await supabase.auth.getUser(bearerToken)
+      user = userFromToken
+      if (user && refreshToken) {
+        await supabase.auth.setSession({ access_token: bearerToken, refresh_token: refreshToken })
+      }
+    }
+    if (!user) {
+      const { data: { user: userFromCookies } } = await supabase.auth.getUser()
+      user = userFromCookies
+    }
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
     }
