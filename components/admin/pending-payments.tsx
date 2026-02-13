@@ -35,6 +35,7 @@ export function PendingPayments() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<number | null>(null)
   const [previewProofUrl, setPreviewProofUrl] = useState<string | null>(null)
+  const [confirmPending, setConfirmPending] = useState<{ action: 'approve' | 'reject'; id: number } | null>(null)
 
   useEffect(() => {
     loadRequests()
@@ -66,71 +67,48 @@ export function PendingPayments() {
   }
 
   const handleApprove = async (id: number) => {
-    if (processing !== null) {
-      console.log('[handleApprove] Ya hay una operación en proceso, ID actual:', processing)
-      return
-    }
-
-    try {
-      console.log('[handleApprove] Iniciando aprobación, estableciendo processing a:', id)
-      setProcessing(id)
-      console.log('[handleApprove] Llamando a approvePurchaseRequest con ID:', id)
-      const result = await approvePurchaseRequest(id)
-      console.log('[handleApprove] Resultado recibido de approvePurchaseRequest:', JSON.stringify(result, null, 2))
-      
-      if (result && result.success) {
-        console.log('[handleApprove] Aprobación exitosa, recargando lista...')
-        await loadRequests()
-        console.log('[handleApprove] Lista recargada')
-      } else {
-        const errorMsg = result?.error || 'Error desconocido'
-        console.error('[handleApprove] Error en el resultado:', errorMsg)
-        alert(`Error al aprobar: ${errorMsg}`)
-      }
-    } catch (error: any) {
-      console.error('[handleApprove] Excepción capturada:', error)
-      console.error('[handleApprove] Stack trace:', error.stack)
-      alert(`Error al aprobar: ${error.message || 'Error desconocido'}`)
-    } finally {
-      console.log('[handleApprove] Limpiando estado processing')
-      setProcessing(null)
-    }
+    if (processing !== null) return
+    setConfirmPending({ action: 'approve', id })
   }
 
-  const handleReject = async (id: number) => {
-    if (processing !== null) {
-      console.log('Ya hay una operación en proceso, ID actual:', processing)
-      return
-    }
+  const handleRejectClick = (id: number) => {
+    if (processing !== null) return
+    setConfirmPending({ action: 'reject', id })
+  }
 
-    if (!confirm('¿Estás seguro de rechazar esta solicitud?')) {
-      console.log('Usuario canceló el rechazo')
-      return
-    }
-    
-    try {
-      console.log('Iniciando rechazo, estableciendo processing a:', id)
-      setProcessing(id)
-      console.log('Llamando a rejectPurchaseRequest con ID:', id)
-      const result = await rejectPurchaseRequest(id)
-      console.log('Resultado recibido de rejectPurchaseRequest:', JSON.stringify(result, null, 2))
-      
-      if (result && result.success) {
-        console.log('Rechazo exitoso, recargando lista...')
-        await loadRequests()
-        console.log('Lista recargada')
-      } else {
-        const errorMsg = result?.error || 'Error desconocido'
-        console.error('Error en el resultado:', errorMsg)
-        alert(`Error al rechazar: ${errorMsg}`)
+  const runConfirmAction = async () => {
+    if (!confirmPending) return
+    const { action, id } = confirmPending
+    setConfirmPending(null)
+
+    if (action === 'approve') {
+      try {
+        setProcessing(id)
+        const result = await approvePurchaseRequest(id)
+        if (result?.success) {
+          await loadRequests()
+        } else {
+          alert(`Error al aprobar: ${result?.error || 'Error desconocido'}`)
+        }
+      } catch (error: any) {
+        alert(`Error al aprobar: ${error.message || 'Error desconocido'}`)
+      } finally {
+        setProcessing(null)
       }
-    } catch (error: any) {
-      console.error('Excepción capturada en handleReject:', error)
-      console.error('Stack trace:', error.stack)
-      alert(`Error al rechazar: ${error.message || 'Error desconocido'}`)
-    } finally {
-      console.log('Limpiando estado processing')
-      setProcessing(null)
+    } else {
+      try {
+        setProcessing(id)
+        const result = await rejectPurchaseRequest(id)
+        if (result?.success) {
+          await loadRequests()
+        } else {
+          alert(`Error al rechazar: ${result?.error || 'Error desconocido'}`)
+        }
+      } catch (error: any) {
+        alert(`Error al rechazar: ${error.message || 'Error desconocido'}`)
+      } finally {
+        setProcessing(null)
+      }
     }
   }
 
@@ -241,7 +219,7 @@ export function PendingPayments() {
                 )}
               </Button>
               <Button
-                onClick={() => handleReject(request.id)}
+                onClick={() => handleRejectClick(request.id)}
                 disabled={processing !== null}
                 variant="destructive"
                 className="flex-1 disabled:opacity-50"
@@ -262,6 +240,35 @@ export function PendingPayments() {
           </CardContent>
         </Card>
       ))}
+
+      <Dialog open={!!confirmPending} onOpenChange={(open) => !open && setConfirmPending(null)}>
+        <DialogContent className="border-white/10 bg-black/95 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {confirmPending?.action === 'approve'
+                ? '¿Estás seguro de aprobar este comprobante?'
+                : '¿Estás seguro de rechazar este comprobante?'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-3 justify-center pt-4">
+            <Button
+              type="button"
+              onClick={runConfirmAction}
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
+              Confirmar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmPending(null)}
+              className="border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+            >
+              Cancelar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!previewProofUrl} onOpenChange={(open) => !open && setPreviewProofUrl(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden border-white/10 bg-black/95">

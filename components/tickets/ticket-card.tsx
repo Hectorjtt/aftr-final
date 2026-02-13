@@ -1,8 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Download, CheckCircle, Clock, XCircle } from "lucide-react"
+import { Download, CheckCircle, Clock, XCircle, Smartphone, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface Ticket {
@@ -16,6 +17,30 @@ interface Ticket {
 }
 
 export function TicketCard({ ticket }: { ticket: Ticket }) {
+  const [walletLoading, setWalletLoading] = useState(false)
+
+  const addToWallet = async () => {
+    setWalletLoading(true)
+    try {
+      const res = await fetch(`/api/wallet/${ticket.id}`, { credentials: 'include' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const msg = data?.error || (res.status === 503 ? 'Agregar a Wallet no está configurado aún.' : 'No se pudo generar el pase.')
+        alert(msg)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ticket-${ticket.id}.pkpass`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setWalletLoading(false)
+    }
+  }
+
   const downloadQR = () => {
     const svg = document.getElementById(`qr-${ticket.id}`)
     if (!svg) return
@@ -96,15 +121,31 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
             Código: <span className="font-mono text-white/80">{ticket.qr_code}</span>
           </p>
           {ticket.status === 'approved' && (
-            <Button
-              onClick={downloadQR}
-              variant="outline"
-              size="sm"
-              className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Descargar QR
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={downloadQR}
+                variant="outline"
+                size="sm"
+                className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Descargar QR
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
+                onClick={addToWallet}
+                disabled={walletLoading}
+              >
+                {walletLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Smartphone className="mr-2 h-4 w-4" />
+                )}
+                Agregar a Wallet
+              </Button>
+            </div>
           )}
         </div>
         {ticket.scanned_at && (
