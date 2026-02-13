@@ -21,14 +21,23 @@ type FormData = {
   proofOfPayment: FileList
 }
 
-const steps = [
+type PurchaseType = "reserva-mesa-5" | "con-mesa" | "sin-mesa"
+
+const stepsWithTable = [
   { id: 1, title: "Seleccionar Mesa", description: "Elige la mesa para tu cover" },
   { id: 2, title: "Cantidad de Covers", description: "¿Cuántos covers necesitas?" },
   { id: 3, title: "Nombres", description: "Ingresa los nombres para cada cover" },
   { id: 4, title: "Pago", description: "Completa tu transferencia" },
 ]
 
+const stepsSinMesa = [
+  { id: 1, title: "Cantidad de Covers", description: "¿Cuántos covers necesitas?" },
+  { id: 2, title: "Nombres", description: "Ingresa los nombres para cada cover" },
+  { id: 3, title: "Pago", description: "Completa tu transferencia" },
+]
+
 export function PurchaseForm() {
+  const [purchaseType, setPurchaseType] = useState<PurchaseType | null>(null)
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<Partial<FormData>>({
     quantity: 1,
@@ -40,6 +49,10 @@ export function PurchaseForm() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { user, loading } = useSupabaseUser()
   const router = useRouter()
+
+  const steps = purchaseType === "sin-mesa" ? stepsSinMesa : stepsWithTable
+  const maxStep = steps.length
+  const isSinMesa = purchaseType === "sin-mesa"
 
   useEffect(() => {
     if (!loading && !user) {
@@ -121,7 +134,7 @@ export function PurchaseForm() {
   }
 
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < maxStep) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -129,6 +142,23 @@ export function PurchaseForm() {
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
+    } else {
+      // Volver a la elección de tipo de compra
+      setPurchaseType(null)
+    }
+  }
+
+  const handleSelectPurchaseType = (type: PurchaseType) => {
+    setPurchaseType(type)
+    if (type === "sin-mesa") {
+      setFormData((prev) => ({ ...prev, table: "sin-mesa" }))
+      setValue("table", "sin-mesa")
+      setCurrentStep(1)
+    } else if (type === "reserva-mesa-5") {
+      setCurrentStep(1)
+      updateQuantity("5")
+    } else {
+      setCurrentStep(1)
     }
   }
 
@@ -172,6 +202,46 @@ export function PurchaseForm() {
     return null // Redirigirá a login
   }
 
+  // Paso 0: elegir tipo de compra
+  if (purchaseType === null) {
+    return (
+      <Card className="border-white/10 bg-white/5 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="text-white">Elige tu tipo de cover</CardTitle>
+          <CardDescription className="text-white/60">
+            Selecciona una opción para continuar
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button
+            type="button"
+            onClick={() => handleSelectPurchaseType("reserva-mesa-5")}
+            variant="outline"
+            className="w-full justify-start border-white/20 bg-white/5 py-6 text-left text-white hover:bg-white/10 hover:text-white"
+          >
+            Reserva mesa (5 Covers)
+          </Button>
+          <Button
+            type="button"
+            onClick={() => handleSelectPurchaseType("con-mesa")}
+            variant="outline"
+            className="w-full justify-start border-white/20 bg-white/5 py-6 text-left text-white hover:bg-white/10 hover:text-white"
+          >
+            Cover con mesa
+          </Button>
+          <Button
+            type="button"
+            onClick={() => handleSelectPurchaseType("sin-mesa")}
+            variant="outline"
+            className="w-full justify-start border-white/20 bg-white/5 py-6 text-left text-white hover:bg-white/10 hover:text-white"
+          >
+            Cover sin mesa
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (isComplete) {
     return (
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
@@ -186,7 +256,7 @@ export function PurchaseForm() {
             <div className="mb-8 rounded-lg border border-white/10 bg-black/30 p-6">
               <h3 className="mb-4 text-xl font-semibold text-white">Resumen de tu compra</h3>
               <div className="space-y-2 text-white/80">
-                <p>Mesa: #{selectedTableId}</p>
+                <p>{formData.table === "sin-mesa" ? "Cover sin mesa" : `Mesa: #${selectedTableId ?? formData.table?.replace("mesa-", "")}`}</p>
                 <p>Cantidad de covers: {formData.quantity}</p>
                 <p className="text-2xl font-bold text-orange-500">Total: ${totalPrice}</p>
               </div>
@@ -232,29 +302,27 @@ export function PurchaseForm() {
 
       <form 
         onSubmit={(e) => {
-          // Solo permitir submit en el último paso
-          if (currentStep === 4) {
+          if (currentStep === maxStep) {
             handleSubmit(onSubmit)(e)
           } else {
             e.preventDefault()
           }
         }}
         onKeyDown={(e) => {
-          // Prevenir que Enter envíe el formulario si no estamos en el último paso
-          if (e.key === "Enter" && currentStep < 4) {
+          if (e.key === "Enter" && currentStep < maxStep) {
             e.preventDefault()
           }
         }}
       >
         <Card className="border-white/10 bg-white/5 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-white">{steps[currentStep - 1].title}</CardTitle>
-            <CardDescription className="text-white/60">{steps[currentStep - 1].description}</CardDescription>
+            <CardTitle className="text-white">{steps[currentStep - 1]?.title}</CardTitle>
+            <CardDescription className="text-white/60">{steps[currentStep - 1]?.description}</CardDescription>
           </CardHeader>
           <CardContent>
             <AnimatePresence mode="wait">
-              {/* Step 1: Select Table */}
-              {currentStep === 1 && (
+              {/* Step 1: Select Table (solo con mesa o reserva mesa 5) */}
+              {!isSinMesa && currentStep === 1 && (
                 <motion.div
                   key="step1"
                   initial={{ opacity: 0, x: 20 }}
@@ -282,8 +350,8 @@ export function PurchaseForm() {
                 </motion.div>
               )}
 
-              {/* Step 2: Quantity */}
-              {currentStep === 2 && (
+              {/* Step 2: Quantity (con mesa) o Step 1 (sin mesa) */}
+              {((!isSinMesa && currentStep === 2) || (isSinMesa && currentStep === 1)) && (
                 <motion.div
                   key="step2"
                   initial={{ opacity: 0, x: 20 }}
@@ -344,8 +412,8 @@ export function PurchaseForm() {
                 </motion.div>
               )}
 
-              {/* Step 3: Names */}
-              {currentStep === 3 && (
+              {/* Step 3: Names (con mesa) o Step 2 (sin mesa) */}
+              {((!isSinMesa && currentStep === 3) || (isSinMesa && currentStep === 2)) && (
                 <motion.div
                   key="step3"
                   initial={{ opacity: 0, x: 20 }}
@@ -411,8 +479,8 @@ export function PurchaseForm() {
                 </motion.div>
               )}
 
-              {/* Step 4: Payment */}
-              {currentStep === 4 && (
+              {/* Step 4: Payment (con mesa) o Step 3 (sin mesa) */}
+              {((!isSinMesa && currentStep === 4) || (isSinMesa && currentStep === 3)) && (
                 <motion.div
                   key="step4"
                   initial={{ opacity: 0, x: 20 }}
@@ -484,34 +552,37 @@ export function PurchaseForm() {
           <Button
             type="button"
             onClick={handleBack}
-            disabled={currentStep === 1}
             variant="outline"
             className="border-white/20 bg-white/5 text-white hover:bg-white/10 disabled:opacity-50"
           >
             Atrás
           </Button>
 
-          {currentStep < 4 ? (
+          {currentStep < maxStep ? (
             <Button
               type="button"
               onClick={handleNext}
-              disabled={
-                (currentStep === 1 && !formData.table) ||
-                (currentStep === 2 && (!formData.quantity || formData.quantity < 1)) ||
-                (currentStep === 3 && (() => {
+              disabled={(() => {
+                const namesFilled = () => {
                   const qty = formData.quantity || 0
-                  if (qty < 1) return true
-                  if (!formData.names || formData.names.length < qty) return true
-                  // Verificar que todos los nombres requeridos estén llenos
+                  if (qty < 1) return false
+                  if (!formData.names || formData.names.length < qty) return false
                   for (let i = 0; i < qty; i++) {
                     const name = formData.names[i]
-                    if (!name || (typeof name === 'string' && name.trim() === "")) {
-                      return true
-                    }
+                    if (!name || (typeof name === "string" && name.trim() === "")) return false
                   }
-                  return false
-                })())
-              }
+                  return true
+                }
+                if (isSinMesa) {
+                  if (currentStep === 1) return !formData.quantity || formData.quantity < 1
+                  if (currentStep === 2) return !namesFilled()
+                } else {
+                  if (currentStep === 1) return !formData.table
+                  if (currentStep === 2) return !formData.quantity || formData.quantity < 1
+                  if (currentStep === 3) return !namesFilled()
+                }
+                return false
+              })()}
               className="bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50"
             >
               Siguiente
