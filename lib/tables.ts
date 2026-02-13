@@ -1,10 +1,5 @@
 import { supabase } from './supabase'
 
-/**
- * Cuenta de tickets aprobados o usados por mesa.
- * La mesa se considera ocupada cuando count >= minCovers de esa mesa (eso se calcula en el mapa).
- * table_id en tickets viene como "mesa-32"; normalizamos a "32" para coincidir con el id del mapa.
- */
 export async function getTableCounts(): Promise<{ data: Record<string, number> | null; error: unknown }> {
   const { data, error } = await supabase
     .from('tickets')

@@ -97,12 +97,11 @@ export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
     return tables.find((t) => t.position.row === row && t.position.col === col)
   }
 
-  // Ocupada = la mesa tiene al menos minCovers tickets aprobados o usados
+  // Ocupada = la mesa tiene al menos 5 tickets aprobados o usados (todas las mesas mismo mínimo)
+  const MIN_COVERS_OCCUPIED = 5
   const isTableOccupied = (tableId: number) => {
-    const table = tables.find((t) => t.id === tableId)
-    const minCovers = table?.minCovers ?? 1
     const count = tableCounts[tableId.toString()] ?? 0
-    return count >= minCovers
+    return count >= MIN_COVERS_OCCUPIED
   }
 
   const getSectionColor = (section: string, tableId: number) => {

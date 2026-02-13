@@ -147,7 +147,10 @@ export function TableDashboard() {
     }
   }
 
-  // Mínimo de covers por mesa (igual que en el mapa: pista 12, resto 10)
+  // Mínimo de covers para considerar una mesa "ocupada" (igual que en el mapa)
+  const MIN_COVERS_OCCUPIED = 5
+
+  // Mínimo por zona para "mínimo de covers" (pista 12, resto 10)
   const getMinCovers = (tableId: string) => {
     const num = parseInt(tableId.replace(/\D/g, ''), 10) || 0
     const pista = [31, 32, 33, 34, 35, 36, 41, 42, 43, 44, 45, 46]
@@ -319,9 +322,11 @@ export function TableDashboard() {
             Resumen General
           </CardTitle>
           <CardDescription className="text-white/60 space-y-1">
-            <span className="block">Total de mesas con covers: {tables.length}</span>
             <span className="block">
-              Total de mesas con mínimo de covers o más:{" "}
+              Total de mesas ocupadas: {tables.filter((t) => t.totalCount >= MIN_COVERS_OCCUPIED).length}
+            </span>
+            <span className="block">
+              Total de mesas con mínimo de covers:{" "}
               {tables.filter((t) => t.totalCount >= getMinCovers(t.tableId)).length}
             </span>
           </CardDescription>
