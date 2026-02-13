@@ -35,6 +35,12 @@ export function RegisterForm() {
       return
     }
 
+    if (!phone.trim()) {
+      setError("El teléfono es obligatorio")
+      setLoading(false)
+      return
+    }
+
     try {
       // Registrar usuario
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -139,8 +145,9 @@ export function RegisterForm() {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="border-white/20 bg-white/5 text-white"
-              placeholder="Ej: 55 1234 5678"
+              required
+              className="border-white/20 bg-white/5 text-white placeholder:text-white/40"
+              placeholder="Ej: 8116579043"
             />
           </div>
 
