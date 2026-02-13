@@ -71,10 +71,10 @@ export const eventConfig = {
     { id: "mesa-6", name: "Mesa 6 - 2do Anillo", zone: "2do Anillo" },
   ],
   payment: {
-    bank: "BBVA",
+    bank: "STP (Sistema de Transferencias y Pagos)",
     account: "123456789",
-    clabe: "012345678901234567",
-    holder: "Aftr Events",
+    clabe: "646021111865217072",
+    holder: "Christian Ariel Rosales Rodríguez",
   },
   social: {
     instagram: "https://www.instagram.com/aftr.mx/",

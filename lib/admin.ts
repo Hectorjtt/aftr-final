@@ -8,7 +8,7 @@ export async function getPendingPurchaseRequests() {
     // Solo seleccionar campos de purchase_requests
     const { data, error } = await supabase
       .from('purchase_requests')
-      .select('id, user_id, table_id, quantity, names, total_price, proof_of_payment_url, status, created_at, updated_at')
+      .select('id, user_id, table_id, quantity, names, total_price, proof_of_payment_url, status, created_at, updated_at, reference')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
 

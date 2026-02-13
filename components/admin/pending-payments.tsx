@@ -4,6 +4,12 @@ import { useEffect, useState } from "react"
 import { getPendingPurchaseRequests, approvePurchaseRequest, rejectPurchaseRequest } from "@/lib/admin"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
 interface PurchaseRequest {
@@ -16,6 +22,7 @@ interface PurchaseRequest {
   proof_of_payment_url: string | null
   status: string
   created_at: string
+  reference?: string | null
   user: {
     id: string
     email: string | null
@@ -27,6 +34,7 @@ export function PendingPayments() {
   const [requests, setRequests] = useState<PurchaseRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<number | null>(null)
+  const [previewProofUrl, setPreviewProofUrl] = useState<string | null>(null)
 
   useEffect(() => {
     loadRequests()
@@ -152,11 +160,18 @@ export function PendingPayments() {
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-white">
-                  Mesa {request.table_id} - {request.quantity} {request.quantity === 1 ? 'cover' : 'covers'}
+                  {request.table_id === 'sin-mesa'
+                    ? `Cover sin mesa - ${request.quantity} ${request.quantity === 1 ? 'cover' : 'covers'}`
+                    : `Mesa ${request.table_id.replace(/^mesa-/, '')} - ${request.quantity} ${request.quantity === 1 ? 'cover' : 'covers'}`}
                 </CardTitle>
                 <CardDescription className="text-white/60">
-                  {request.user?.phone || request.user?.email || `Usuario ID: ${request.user_id?.substring(0, 8)}...` || 'Usuario desconocido'}
+                  {request.user?.email || `Usuario ID: ${request.user_id?.substring(0, 8)}...` || 'Usuario desconocido'}
                 </CardDescription>
+                {request.reference && (
+                  <CardDescription className="text-white/60">
+                    Referencia: {request.reference}
+                  </CardDescription>
+                )}
                 <CardDescription className="text-white/60">
                   {new Date(request.created_at).toLocaleString('es-MX')}
                 </CardDescription>
@@ -178,19 +193,34 @@ export function PendingPayments() {
               </ul>
             </div>
             
-            {request.proof_of_payment_url && (
-              <div>
-                <p className="mb-2 text-sm font-medium text-white">Comprobante de pago:</p>
-                <a
-                  href={request.proof_of_payment_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-500 hover:text-orange-400 underline"
-                >
-                  Ver comprobante
-                </a>
+            <div>
+              <p className="mb-2 text-sm font-medium text-white">Comprobante de pago:</p>
+              <div className="space-y-1">
+                {request.proof_of_payment_url && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewProofUrl(request.proof_of_payment_url!)}
+                    className="block text-orange-500 hover:text-orange-400 underline text-left"
+                  >
+                    Ver comprobante
+                  </button>
+                )}
+                {request.user?.phone && (() => {
+                  const digits = request.user.phone.replace(/\D/g, '')
+                  const whatsappNumber = digits.length === 10 ? `52${digits}` : digits.length === 12 && digits.startsWith('52') ? digits : `52${digits}`
+                  return (
+                    <a
+                      href={`https://wa.me/${whatsappNumber}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-green-500 hover:text-green-400 underline text-left"
+                    >
+                      Contactar WhatsApp
+                    </a>
+                  )
+                })()}
               </div>
-            )}
+            </div>
 
             <div className="flex gap-2">
               <Button
@@ -232,6 +262,31 @@ export function PendingPayments() {
           </CardContent>
         </Card>
       ))}
+
+      <Dialog open={!!previewProofUrl} onOpenChange={(open) => !open && setPreviewProofUrl(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden border-white/10 bg-black/95">
+          <DialogHeader>
+            <DialogTitle className="text-white">Vista previa del comprobante</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center min-h-[50vh] bg-black/50 rounded-lg overflow-auto p-4">
+            {previewProofUrl && (
+              previewProofUrl.toLowerCase().includes(".pdf") ? (
+                <iframe
+                  src={previewProofUrl}
+                  title="Comprobante de pago"
+                  className="w-full h-[70vh] rounded border-0"
+                />
+              ) : (
+                <img
+                  src={previewProofUrl}
+                  alt="Comprobante de pago"
+                  className="max-w-full max-h-[70vh] object-contain rounded"
+                />
+              )
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

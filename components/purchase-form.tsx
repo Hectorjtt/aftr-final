@@ -10,8 +10,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TableMap } from "@/components/table-map"
 import { CheckCircleIcon } from "@heroicons/react/24/solid"
+import { Copy } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 type FormData = {
@@ -47,8 +49,11 @@ export function PurchaseForm() {
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [transferReference, setTransferReference] = useState<string | null>(null)
   const { user, loading } = useSupabaseUser()
   const router = useRouter()
+
+  const generateReference = () => String(Math.floor(10000 + Math.random() * 90000))
 
   const steps = purchaseType === "sin-mesa" ? stepsSinMesa : stepsWithTable
   const maxStep = steps.length
@@ -59,6 +64,12 @@ export function PurchaseForm() {
       router.push("/login?redirect=/compra")
     }
   }, [loading, user, router])
+
+  useEffect(() => {
+    if (purchaseType && currentStep === maxStep && !transferReference) {
+      setTransferReference(generateReference())
+    }
+  }, [purchaseType, currentStep, maxStep, transferReference])
 
   const {
     register,
@@ -71,6 +82,7 @@ export function PurchaseForm() {
 
   const quantity = watch("quantity") ?? formData.quantity ?? 0
   const totalPrice = (quantity > 0 ? quantity : 0) * eventConfig.cover.online
+  const totalPriceFormatted = totalPrice.toLocaleString("es-MX")
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true)
@@ -107,18 +119,24 @@ export function PurchaseForm() {
         throw new Error("Debes estar autenticado para realizar una compra")
       }
 
-      const { error: dbError } = await supabase
-        .from('purchase_requests')
-        .insert({
-          user_id: user.id,
-          table_id: data.table,
-          quantity: formData.quantity,
-          names: formData.names,
-          proof_of_payment_url: proofOfPaymentUrl,
-          total_price: totalPrice,
-          status: 'pending',
-        })
-
+      let ref = transferReference || generateReference()
+      let insertPayload = {
+        user_id: user.id,
+        table_id: data.table,
+        quantity: formData.quantity,
+        names: formData.names,
+        proof_of_payment_url: proofOfPaymentUrl,
+        total_price: totalPrice,
+        status: 'pending' as const,
+        reference: ref,
+      }
+      let { error: dbError } = await supabase.from('purchase_requests').insert(insertPayload)
+      if (dbError?.code === '23505' && ref) {
+        ref = generateReference()
+        insertPayload.reference = ref
+        const retry = await supabase.from('purchase_requests').insert(insertPayload)
+        dbError = retry.error
+      }
       if (dbError) {
         throw new Error(`Error al guardar los datos: ${dbError.message}`)
       }
@@ -258,7 +276,7 @@ export function PurchaseForm() {
               <div className="space-y-2 text-white/80">
                 <p>{formData.table === "sin-mesa" ? "Cover sin mesa" : `Mesa: #${selectedTableId ?? formData.table?.replace("mesa-", "")}`}</p>
                 <p>Cantidad de covers: {formData.quantity}</p>
-                <p className="text-2xl font-bold text-orange-500">Total: ${totalPrice}</p>
+                <p className="text-2xl font-bold text-orange-500">Total: ${totalPriceFormatted}</p>
               </div>
             </div>
             <Button
@@ -363,50 +381,44 @@ export function PurchaseForm() {
                     <Label htmlFor="quantity" className="text-white">
                       Cantidad de covers (Precio: ${eventConfig.cover.online} por cover)
                     </Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      min="1"
-                      value={(formData.quantity && formData.quantity > 0) ? formData.quantity : ""}
-                      {...register("quantity", { 
-                        required: "Este campo es obligatorio",
-                        min: { value: 1, message: "Mínimo 1 cover" },
-                        validate: (value) => {
-                          const numValue = Number(value)
-                          if (isNaN(numValue) || numValue < 1) {
-                            return "Mínimo 1 cover"
-                          }
-                          return true
-                        }
-                      })}
-                      onChange={(e) => {
-                        const value = e.target.value
+                    <Select
+                      value={formData.quantity && formData.quantity > 0 ? formData.quantity.toString() : ""}
+                      onValueChange={(value) => {
+                        const numValue = Number.parseInt(value) || 0
                         updateQuantity(value)
-                        // Limpiar errores si el valor es válido
-                        if (value && Number.parseInt(value) >= 1) {
+                        setValue("quantity", numValue, { shouldValidate: true })
+                        if (numValue >= 1) {
                           clearErrors("quantity")
                         }
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          // Solo avanzar si la cantidad es válida
-                          if (formData.quantity && formData.quantity >= 1) {
-                            handleNext()
-                          }
-                        }
-                      }}
-                      className="border-white/20 bg-white/5 text-white"
-                    />
+                    >
+                      <SelectTrigger
+                        id="quantity"
+                        className="border-white/20 bg-white/5 text-white"
+                      >
+                        <SelectValue placeholder="Selecciona la cantidad" />
+                      </SelectTrigger>
+                      <SelectContent className="border-white/10 bg-black/95">
+                        {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
+                          <SelectItem
+                            key={num}
+                            value={num.toString()}
+                            className="text-white focus:bg-white/10"
+                          >
+                            {num} {num === 1 ? "cover" : "covers"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {errors.quantity && (!formData.quantity || formData.quantity < 1) && (
                       <p className="mt-1 text-sm text-red-500">
-                        {errors.quantity.message || "Ingresa una cantidad válida (mínimo 1)"}
+                        {errors.quantity.message || "Selecciona una cantidad válida"}
                       </p>
                     )}
                   </div>
                   <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
                     <p className="text-2xl font-bold text-orange-500">
-                      Total: ${totalPrice > 0 ? totalPrice : "0.00"}
+                      Total: {"$" + totalPriceFormatted}
                     </p>
                   </div>
                 </motion.div>
@@ -490,31 +502,57 @@ export function PurchaseForm() {
                 >
                   <div className="rounded-lg border border-white/10 bg-black/30 p-6">
                     <h3 className="mb-4 text-xl font-semibold text-white">Realiza tu transferencia</h3>
-                    <div className="space-y-3 text-white/80">
-                      <div className="flex justify-between">
-                        <span className="font-medium">Banco:</span>
-                        <span>{eventConfig.payment.bank}</span>
+                    <div className="space-y-5 text-white/80">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-white">CLABE</span>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(eventConfig.payment.clabe)}
+                            className="p-1 rounded hover:bg-white/10 text-white/80 hover:text-white"
+                            title="Copiar CLABE"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <p className="font-mono text-sm text-white">{eventConfig.payment.clabe}</p>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Cuenta:</span>
-                        <span>{eventConfig.payment.account}</span>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-white">Banco</span>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(eventConfig.payment.bank)}
+                            className="p-1 rounded hover:bg-white/10 text-white/80 hover:text-white"
+                            title="Copiar banco"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <p className="text-white">{eventConfig.payment.bank}</p>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">CLABE:</span>
-                        <span className="font-mono text-sm">{eventConfig.payment.clabe}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Titular:</span>
-                        <span>{eventConfig.payment.holder}</span>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-white">Titular</span>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(eventConfig.payment.holder)}
+                            className="p-1 rounded hover:bg-white/10 text-white/80 hover:text-white"
+                            title="Copiar titular"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <p className="text-white">{eventConfig.payment.holder}</p>
                       </div>
                       <div className="flex justify-between border-t border-white/10 pt-3">
                         <span className="font-medium">Monto a transferir:</span>
-                        <span className="text-2xl font-bold text-orange-500">${totalPrice}</span>
+                        <span className="text-2xl font-bold text-orange-500">${totalPriceFormatted}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="font-medium">Referencia:</span>
                         <span className="font-mono text-sm">
-                          {eventConfig.event.shortName}-{Date.now()}
+                          {transferReference || "—"}
                         </span>
                       </div>
                     </div>
