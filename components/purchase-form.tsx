@@ -29,13 +29,24 @@ const stepsWithTable = [
   { id: 1, title: "Seleccionar Mesa", description: "Elige la mesa para tu cover" },
   { id: 2, title: "Cantidad de Covers", description: "¿Cuántos covers necesitas?" },
   { id: 3, title: "Nombres", description: "Ingresa los nombres para cada cover" },
-  { id: 4, title: "Pago", description: "Completa tu transferencia" },
+  { id: 4, title: "Términos y Condiciones", description: "Lee y acepta las políticas del evento" },
+  { id: 5, title: "Pago", description: "Completa tu transferencia" },
 ]
 
 const stepsSinMesa = [
   { id: 1, title: "Cantidad de Covers", description: "¿Cuántos covers necesitas?" },
   { id: 2, title: "Nombres", description: "Ingresa los nombres para cada cover" },
-  { id: 3, title: "Pago", description: "Completa tu transferencia" },
+  { id: 3, title: "Términos y Condiciones", description: "Lee y acepta las políticas del evento" },
+  { id: 4, title: "Pago", description: "Completa tu transferencia" },
+]
+
+const TERMS_CONTENT = [
+  "La propina no está incluida. Cada mesa tendrá su mesero asignado durante todo el brunch. Se recomienda dejar $600-800 pesos por mesa, ya que el mesero será la persona que les estará atendiendo durante el evento.",
+  "Como máximo es permitido traer 5 litros de alcohol por mesa.",
+  "Botellas que ingresen al antro, no se podrán retirar terminando el evento por reglamento del estado, aunque estén cerradas.",
+  "Por seguridad de todos, no se permite el ingreso con botellas abiertas. Queremos que disfruten sin preocupaciones, así que les pedimos respetar esta medida.",
+  "Por políticas de The Normal, no está permitido ingresar con Hpnotiq, Jägermeister, Vodka Tamarindo, cerveza, seltzers, fourloko, buzballs, bebidas energéticas o cualquier tipo de derivados de shots.",
+  "Está permitido únicamente botellas destiladas cerradas.",
 ]
 
 export function PurchaseForm() {
@@ -50,6 +61,8 @@ export function PurchaseForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [transferReference, setTransferReference] = useState<string | null>(null)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [hasProofFile, setHasProofFile] = useState(false)
   const { user, loading } = useSupabaseUser()
   const router = useRouter()
 
@@ -80,6 +93,7 @@ export function PurchaseForm() {
     clearErrors,
   } = useForm<FormData>()
 
+  const proofRegister = register("proofOfPayment", { required: true })
   const quantity = watch("quantity") ?? formData.quantity ?? 0
   const totalPrice = (quantity > 0 ? quantity : 0) * eventConfig.cover.online
   const totalPriceFormatted = totalPrice.toLocaleString("es-MX")
@@ -491,10 +505,41 @@ export function PurchaseForm() {
                 </motion.div>
               )}
 
-              {/* Step 4: Payment (con mesa) o Step 3 (sin mesa) */}
+              {/* Step 4: Términos y Condiciones (con mesa) o Step 3 (sin mesa) */}
               {((!isSinMesa && currentStep === 4) || (isSinMesa && currentStep === 3)) && (
                 <motion.div
-                  key="step4"
+                  key="step-terms"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-4"
+                >
+                  <div className="rounded-lg border border-white/10 bg-black/30 p-6 space-y-4">
+               
+                    <ul className="space-y-3 text-sm text-white/80 list-disc list-inside">
+                      {TERMS_CONTENT.map((item, i) => (
+                        <li key={i} className="leading-relaxed">{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="mt-1 h-5 w-5 rounded border-white/30 bg-white/5 text-orange-500 focus:ring-orange-500 focus:ring-offset-0"
+                    />
+                    <span className="text-sm text-white/90 group-hover:text-white">
+                      He leído y acepto los términos y condiciones anteriores
+                    </span>
+                  </label>
+                </motion.div>
+              )}
+
+              {/* Step 5: Payment (con mesa) o Step 4 (sin mesa) */}
+              {((!isSinMesa && currentStep === 5) || (isSinMesa && currentStep === 4)) && (
+                <motion.div
+                  key="step-payment"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -566,12 +611,13 @@ export function PurchaseForm() {
                       id="proof"
                       type="file"
                       accept="image/*,.pdf"
-                      {...register("proofOfPayment", { required: true })}
+                      {...proofRegister}
+                      onChange={(e) => {
+                        proofRegister.onChange(e)
+                        setHasProofFile(!!e.target.files?.length)
+                      }}
                       className="border-white/20 bg-white/5 text-white file:mr-4 file:rounded file:border-0 file:bg-orange-500 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black hover:file:bg-orange-400"
                     />
-                    {errors.proofOfPayment && (
-                      <p className="mt-1 text-sm text-red-500">Debes subir el comprobante de pago</p>
-                    )}
                   </div>
                   
                   {submitError && (
@@ -614,10 +660,12 @@ export function PurchaseForm() {
                 if (isSinMesa) {
                   if (currentStep === 1) return !formData.quantity || formData.quantity < 1
                   if (currentStep === 2) return !namesFilled()
+                  if (currentStep === 3) return !termsAccepted
                 } else {
                   if (currentStep === 1) return !formData.table
                   if (currentStep === 2) return !formData.quantity || formData.quantity < 1
                   if (currentStep === 3) return !namesFilled()
+                  if (currentStep === 4) return !termsAccepted
                 }
                 return false
               })()}
@@ -628,7 +676,7 @@ export function PurchaseForm() {
           ) : (
             <Button 
               type="submit" 
-              disabled={isSubmitting}
+              disabled={isSubmitting || !hasProofFile}
               className="bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50"
             >
               {isSubmitting ? "Enviando..." : "Enviar Solicitud"}
