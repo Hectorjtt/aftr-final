@@ -178,6 +178,7 @@ export function AdminTableMap() {
       <TableMap
         selectedTable={selectedTableId}
         onSelectTable={handleTableClick}
+        compact
       />
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="border-white/10 bg-black/95 text-white sm:max-w-md">

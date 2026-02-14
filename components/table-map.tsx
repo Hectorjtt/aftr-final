@@ -74,9 +74,11 @@ const djTables = [
 type TableMapProps = {
   selectedTable: number | null
   onSelectTable: (tableId: number) => void
+  /** Versión más compacta para admin (mapa más pequeño) */
+  compact?: boolean
 }
 
-export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
+export function TableMap({ selectedTable, onSelectTable, compact = false }: TableMapProps) {
   // Conteo de tickets (aprobados + usados) por mesa. Clave = id numérico ("32", "10", etc.)
   const [tableCounts, setTableCounts] = useState<Record<string, number>>({})
 
@@ -121,18 +123,18 @@ export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
   }
 
   return (
-    <div className="mx-auto w-full overflow-x-auto px-4 lg:px-8">
-      <div className="min-w-[900px] p-4 lg:p-6">
-        <div className="relative grid gap-2">
+    <div className={cn("mx-auto w-full overflow-x-auto", compact ? "flex justify-center px-2" : "px-4 lg:px-8")}>
+      <div className={cn(compact ? "min-w-[600px] max-w-[720px] p-2" : "min-w-[900px] p-4 lg:p-6")}>
+        <div className="relative grid gap-1">
           {/* Main Layout Container */}
-          <div className="grid grid-cols-[180px_1fr_120px] gap-4 lg:gap-6">
+          <div className={cn("grid", compact ? "grid-cols-[100px_1fr_70px] gap-2 lg:gap-3" : "grid-cols-[180px_1fr_120px] gap-4 lg:gap-6")}>
             {/* Left Side - BARRA */}
             <div className="flex h-full items-center justify-center rounded-lg border-2 border-white/20 bg-gradient-to-b from-gray-900 to-black">
               <div className="rotate-180 text-center font-bold text-white [writing-mode:vertical-lr]">BARRA</div>
             </div>
 
             {/* Center - Main Table Area */}
-            <div className="space-y-4">
+            <div className={compact ? "space-y-2" : "space-y-4"}>
               {[
                 { row: 0, label: "SEGUNDO ANILLO - Mínimo 10 covers", cols: 7 },
                 { row: 1, label: "PRIMER ANILLO - Mínimo 10 covers", cols: 6, offset: 0 },
@@ -152,12 +154,12 @@ export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
                 return (
                 <div key={row} className="space-y-1">
                   {/* Section Label */}
-                  <div className={`rounded border px-3 py-1 text-center text-xs font-semibold ${getLabelColor()}`}>
+                  <div className={cn("rounded border text-center font-semibold", compact ? "px-2 py-0.5 text-[10px]" : "px-3 py-1 text-xs", getLabelColor())}>
                     {label}
                   </div>
 
                   {/* Tables Grid */}
-                  <div className="grid grid-cols-7 gap-3">
+                  <div className={cn("grid grid-cols-7", compact ? "gap-1.5" : "gap-3")}>
                     {Array.from({ length: 7 }).map((_, colIndex) => {
                       const table = getTableAtPosition(row, colIndex)
 
@@ -194,8 +196,8 @@ export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
                           )}
                         >
                           <div className="text-center">
-                            <div className="text-2xl">{table.id}</div>
-                            <div className="text-[10px] opacity-80">Min {table.minCovers}</div>
+                            <div className={compact ? "text-lg" : "text-2xl"}>{table.id}</div>
+                            <div className={cn(compact ? "text-[8px]" : "text-[10px]", "opacity-80")}>Min {table.minCovers}</div>
                             {isOccupied && (
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <span className="rounded bg-gray-900/80 px-2 py-0.5 text-[9px] font-bold text-white">
@@ -213,25 +215,25 @@ export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
               })}
             </div>
 
-            <div className="flex flex-col justify-center space-y-2">
-              <div className="rounded border border-red-700/50 bg-red-900/20 px-2 py-1.5 text-center text-[10px] font-semibold text-red-200">
+            <div className={cn("flex flex-col justify-center", compact ? "space-y-1" : "space-y-2")}>
+              <div className={cn("rounded border border-red-700/50 bg-red-900/20 text-center font-semibold text-red-200", compact ? "px-1 py-0.5 text-[8px]" : "px-2 py-1.5 text-[10px]")}>
                 ESPACIO DJ - Mínimo 8 covers
               </div>
 
               {/* DJ Tables Grid - 6 positions total with same size as main tables */}
               <div className="flex justify-center">
-              <div className="grid w-[60px] grid-cols-1 gap-2">
+              <div className={cn("grid grid-cols-1", compact ? "w-[45px] gap-1" : "w-[60px] gap-2")}>
                 {Array.from({ length: 6 }).map((_, index) => {
                   // Position 2 is the DJ booth
                   if (index === 2) {
                     return (
                       <div
                         key="dj-booth"
-                        className="flex h-[60px] w-[60px] items-center justify-center rounded-lg border-2 border-red-900/60 bg-gradient-to-br from-red-900/40 to-red-800/40"
+                        className={cn("flex items-center justify-center rounded-lg border-2 border-red-900/60 bg-gradient-to-br from-red-900/40 to-red-800/40", compact ? "h-[45px] w-[45px]" : "h-[60px] w-[60px]")}
                       >
                         <div className="text-center">
-                          <div className="text-lg">🎧</div>
-                          <div className="text-[10px] font-bold text-white">DJ</div>
+                          <div className={compact ? "text-sm" : "text-lg"}>🎧</div>
+                          <div className={cn(compact ? "text-[8px]" : "text-[10px]", "font-bold text-white")}>DJ</div>
                         </div>
                       </div>
                     )
@@ -250,8 +252,9 @@ export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
                       onClick={() => onSelectTable(table.id)}
                       whileHover={{ scale: isOccupied ? 1 : 1.05 }}
                       whileTap={{ scale: isOccupied ? 1 : 0.95 }}
-                      className={cn(
-                        "relative flex h-[60px] w-[60px] items-center justify-center rounded-lg border-2 font-bold transition-all",
+                        className={cn(
+                        "relative flex items-center justify-center rounded-lg border-2 font-bold transition-all",
+                        compact ? "h-[45px] w-[45px]" : "h-[60px] w-[60px]",
                         isOccupied
                           ? isSelected
                             ? "border-gray-500 bg-gray-600 text-white opacity-60"
@@ -262,8 +265,8 @@ export function TableMap({ selectedTable, onSelectTable }: TableMapProps) {
                       )}
                     >
                       <div className="text-center">
-                        <div className="text-xl">{table.name}</div>
-                        <div className="text-[9px] opacity-80">Min 8</div>
+                        <div className={compact ? "text-sm" : "text-xl"}>{table.name}</div>
+                        <div className={cn(compact ? "text-[7px]" : "text-[9px]", "opacity-80")}>Min 8</div>
                         {isOccupied && (
                           <div className="absolute inset-0 flex items-center justify-center">
                             <span className="rounded bg-gray-900/80 px-1 py-0.5 text-[8px] font-bold text-white">
