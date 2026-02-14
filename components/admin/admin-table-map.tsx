@@ -181,15 +181,15 @@ export function AdminTableMap() {
         onSelectTable={handleTableClick}
       />
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="border-white/10 bg-black/95 text-white sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-white">
+        <DialogContent className="max-w-[300px] gap-3 p-4 border-white/10 bg-black/95 text-white sm:max-w-[300px]">
+          <DialogHeader className="pb-1">
+            <DialogTitle className="text-base text-white">
               Mesa {selectedTableId ?? ""}
             </DialogTitle>
           </DialogHeader>
           {covers.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3 border-b border-white/10 pb-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-white/80 hover:text-white">
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-2">
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-white/80 hover:text-white">
                 <input
                   type="checkbox"
                   checked={selectedIds.size === covers.length}
@@ -200,7 +200,7 @@ export function AdminTableMap() {
               </label>
               {selectedIds.size > 0 && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-white/60">
+                  <span className="text-xs text-white/60">
                     {selectedIds.size} seleccionado(s)
                   </span>
                   {!showMoveSelect ? (
@@ -220,7 +220,7 @@ export function AdminTableMap() {
                         value={moveTargetTable}
                         onValueChange={setMoveTargetTable}
                       >
-                        <SelectTrigger className="w-[140px] border-white/20 bg-white/5 text-white">
+                        <SelectTrigger className="h-8 w-[120px] border-white/20 bg-white/5 text-xs text-white">
                           <SelectValue placeholder="Mesa destino" />
                         </SelectTrigger>
                         <SelectContent className="border-white/10 bg-black/95">
@@ -264,21 +264,21 @@ export function AdminTableMap() {
               )}
             </div>
           )}
-          <div className="max-h-[300px] overflow-y-auto">
+          <div className="max-h-[220px] overflow-y-auto">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
               </div>
             ) : covers.length === 0 ? (
-              <p className="py-6 text-center text-white/60">
+              <p className="py-4 text-center text-sm text-white/60">
                 No hay covers aprobados en esta mesa.
               </p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-1.5">
                 {covers.map((ticket) => (
                   <li
                     key={ticket.id}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5"
                   >
                     <input
                       type="checkbox"
@@ -296,7 +296,7 @@ export function AdminTableMap() {
                           onKeyDown={(e) => handleKeyDown(e, ticket.id)}
                           onBlur={() => handleSaveName(ticket.id)}
                           autoFocus
-                          className="flex-1 border-white/20 bg-white/5 text-white"
+                          className="h-8 flex-1 text-sm border-white/20 bg-white/5 text-white"
                         />
                         {savingId === ticket.id ? (
                           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-orange-500" />
@@ -314,14 +314,14 @@ export function AdminTableMap() {
                     ) : (
                       <>
                         <span
-                          className="flex-1 cursor-pointer text-white hover:text-orange-400"
+                          className="flex-1 cursor-pointer text-sm text-white hover:text-orange-400"
                           onClick={() => handleStartEdit(ticket)}
                           title="Clic para editar"
                         >
                           {ticket.cover_name}
                         </span>
                         {ticket.status === "used" && (
-                          <Badge className="shrink-0 bg-green-600/80 text-white">
+                          <Badge className="shrink-0 px-1.5 py-0 text-[10px] bg-green-600/80 text-white">
                             Usado
                           </Badge>
                         )}
