@@ -365,6 +365,7 @@ export function PurchaseForm() {
                   <div>
                     <Label className="mb-4 block text-white">Selecciona tu mesa en el mapa</Label>
                     <TableMap
+                      size="narrow"
                       selectedTable={selectedTableId}
                       onSelectTable={(tableId) => {
                         setSelectedTableId(tableId)

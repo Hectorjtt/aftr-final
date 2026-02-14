@@ -71,14 +71,22 @@ const djTables = [
   { id: 6, name: "6", position: 5 },
 ]
 
+type TableMapSize = 'default' | 'compact' | 'narrow'
+
 type TableMapProps = {
   selectedTable: number | null
   onSelectTable: (tableId: number) => void
-  /** Versión más compacta para admin (mapa más pequeño) */
+  /** default = grande, compact = admin, narrow = compra (cabe en iPhone) */
+  size?: TableMapSize
+  /** @deprecated Usa size="compact" en su lugar */
   compact?: boolean
 }
 
-export function TableMap({ selectedTable, onSelectTable, compact = false }: TableMapProps) {
+export function TableMap({ selectedTable, onSelectTable, size: sizeProp, compact: compactProp }: TableMapProps) {
+  const size = sizeProp ?? (compactProp ? 'compact' : 'default')
+  const compact = size === 'compact'
+  const narrow = size === 'narrow'
+  const small = compact || narrow
   // Conteo de tickets (aprobados + usados) por mesa. Clave = id numérico ("32", "10", etc.)
   const [tableCounts, setTableCounts] = useState<Record<string, number>>({})
 
@@ -123,18 +131,32 @@ export function TableMap({ selectedTable, onSelectTable, compact = false }: Tabl
   }
 
   return (
-    <div className={cn("mx-auto w-full overflow-x-auto", compact ? "flex justify-center px-2" : "px-4 lg:px-8")}>
-      <div className={cn(compact ? "min-w-[600px] max-w-[720px] p-2" : "min-w-[900px] p-4 lg:p-6")}>
+    <div className={cn(
+      "mx-auto w-full overflow-x-auto",
+      narrow && "flex justify-center px-1",
+      compact && !narrow && "flex justify-center px-2",
+      !small && "px-4 lg:px-8"
+    )}>
+      <div className={cn(
+        narrow && "min-w-0 w-full max-w-[380px] p-1",
+        compact && !narrow && "min-w-[600px] max-w-[720px] p-2",
+        !small && "min-w-[900px] p-4 lg:p-6"
+      )}>
         <div className="relative grid gap-1">
           {/* Main Layout Container */}
-          <div className={cn("grid", compact ? "grid-cols-[100px_1fr_70px] gap-2 lg:gap-3" : "grid-cols-[180px_1fr_120px] gap-4 lg:gap-6")}>
+          <div className={cn(
+            "grid",
+            narrow && "grid-cols-[50px_1fr_45px] gap-1",
+            compact && !narrow && "grid-cols-[100px_1fr_70px] gap-2 lg:gap-3",
+            !small && "grid-cols-[180px_1fr_120px] gap-4 lg:gap-6"
+          )}>
             {/* Left Side - BARRA */}
             <div className="flex h-full items-center justify-center rounded-lg border-2 border-white/20 bg-gradient-to-b from-gray-900 to-black">
-              <div className="rotate-180 text-center font-bold text-white [writing-mode:vertical-lr]">BARRA</div>
+              <div className={cn("rotate-180 text-center font-bold text-white [writing-mode:vertical-lr]", narrow && "text-[8px]")}>BARRA</div>
             </div>
 
             {/* Center - Main Table Area */}
-            <div className={compact ? "space-y-2" : "space-y-4"}>
+            <div className={narrow ? "space-y-1" : compact ? "space-y-2" : "space-y-4"}>
               {[
                 { row: 0, label: "SEGUNDO ANILLO - Mínimo 10 covers", cols: 7 },
                 { row: 1, label: "PRIMER ANILLO - Mínimo 10 covers", cols: 6, offset: 0 },
@@ -154,12 +176,12 @@ export function TableMap({ selectedTable, onSelectTable, compact = false }: Tabl
                 return (
                 <div key={row} className="space-y-1">
                   {/* Section Label */}
-                  <div className={cn("rounded border text-center font-semibold", compact ? "px-2 py-0.5 text-[10px]" : "px-3 py-1 text-xs", getLabelColor())}>
+                  <div className={cn("rounded border text-center font-semibold", narrow ? "px-1 py-0.5 text-[8px]" : compact ? "px-2 py-0.5 text-[10px]" : "px-3 py-1 text-xs", getLabelColor())}>
                     {label}
                   </div>
 
                   {/* Tables Grid */}
-                  <div className={cn("grid grid-cols-7", compact ? "gap-1.5" : "gap-3")}>
+                  <div className={cn("grid grid-cols-7", narrow ? "gap-0.5" : compact ? "gap-1.5" : "gap-3")}>
                     {Array.from({ length: 7 }).map((_, colIndex) => {
                       const table = getTableAtPosition(row, colIndex)
 
@@ -196,11 +218,11 @@ export function TableMap({ selectedTable, onSelectTable, compact = false }: Tabl
                           )}
                         >
                           <div className="text-center">
-                            <div className={compact ? "text-lg" : "text-2xl"}>{table.id}</div>
-                            <div className={cn(compact ? "text-[8px]" : "text-[10px]", "opacity-80")}>Min {table.minCovers}</div>
+                            <div className={narrow ? "text-sm" : compact ? "text-lg" : "text-2xl"}>{table.id}</div>
+                            <div className={cn(narrow ? "text-[7px]" : compact ? "text-[8px]" : "text-[10px]", "opacity-80")}>Min {table.minCovers}</div>
                             {isOccupied && (
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="rounded bg-gray-900/80 px-2 py-0.5 text-[9px] font-bold text-white">
+                                <span className={cn("rounded bg-gray-900/80 font-bold text-white", narrow ? "px-1 py-0.5 text-[6px]" : "px-2 py-0.5 text-[9px]")}>
                                   OCUPADA
                                 </span>
                               </div>
@@ -215,25 +237,25 @@ export function TableMap({ selectedTable, onSelectTable, compact = false }: Tabl
               })}
             </div>
 
-            <div className={cn("flex flex-col justify-center", compact ? "space-y-1" : "space-y-2")}>
-              <div className={cn("rounded border border-red-700/50 bg-red-900/20 text-center font-semibold text-red-200", compact ? "px-1 py-0.5 text-[8px]" : "px-2 py-1.5 text-[10px]")}>
+            <div className={cn("flex flex-col justify-center", narrow ? "space-y-0.5" : compact ? "space-y-1" : "space-y-2")}>
+              <div className={cn("rounded border border-red-700/50 bg-red-900/20 text-center font-semibold text-red-200", narrow ? "px-0.5 py-0.5 text-[6px]" : compact ? "px-1 py-0.5 text-[8px]" : "px-2 py-1.5 text-[10px]")}>
                 ESPACIO DJ - Mínimo 8 covers
               </div>
 
               {/* DJ Tables Grid - 6 positions total with same size as main tables */}
               <div className="flex justify-center">
-              <div className={cn("grid grid-cols-1", compact ? "w-[45px] gap-1" : "w-[60px] gap-2")}>
+              <div className={cn("grid grid-cols-1", narrow ? "w-[36px] gap-0.5" : compact ? "w-[45px] gap-1" : "w-[60px] gap-2")}>
                 {Array.from({ length: 6 }).map((_, index) => {
                   // Position 2 is the DJ booth
                   if (index === 2) {
                     return (
                       <div
                         key="dj-booth"
-                        className={cn("flex items-center justify-center rounded-lg border-2 border-red-900/60 bg-gradient-to-br from-red-900/40 to-red-800/40", compact ? "h-[45px] w-[45px]" : "h-[60px] w-[60px]")}
+                        className={cn("flex items-center justify-center rounded-lg border-2 border-red-900/60 bg-gradient-to-br from-red-900/40 to-red-800/40", narrow ? "h-[36px] w-[36px]" : compact ? "h-[45px] w-[45px]" : "h-[60px] w-[60px]")}
                       >
                         <div className="text-center">
-                          <div className={compact ? "text-sm" : "text-lg"}>🎧</div>
-                          <div className={cn(compact ? "text-[8px]" : "text-[10px]", "font-bold text-white")}>DJ</div>
+                          <div className={narrow ? "text-xs" : compact ? "text-sm" : "text-lg"}>🎧</div>
+                          <div className={cn(narrow ? "text-[6px]" : compact ? "text-[8px]" : "text-[10px]", "font-bold text-white")}>DJ</div>
                         </div>
                       </div>
                     )
@@ -254,7 +276,7 @@ export function TableMap({ selectedTable, onSelectTable, compact = false }: Tabl
                       whileTap={{ scale: isOccupied ? 1 : 0.95 }}
                         className={cn(
                         "relative flex items-center justify-center rounded-lg border-2 font-bold transition-all",
-                        compact ? "h-[45px] w-[45px]" : "h-[60px] w-[60px]",
+                        narrow ? "h-[36px] w-[36px]" : compact ? "h-[45px] w-[45px]" : "h-[60px] w-[60px]",
                         isOccupied
                           ? isSelected
                             ? "border-gray-500 bg-gray-600 text-white opacity-60"
@@ -265,11 +287,11 @@ export function TableMap({ selectedTable, onSelectTable, compact = false }: Tabl
                       )}
                     >
                       <div className="text-center">
-                        <div className={compact ? "text-sm" : "text-xl"}>{table.name}</div>
-                        <div className={cn(compact ? "text-[7px]" : "text-[9px]", "opacity-80")}>Min 8</div>
+                        <div className={narrow ? "text-xs" : compact ? "text-sm" : "text-xl"}>{table.name}</div>
+                        <div className={cn(narrow ? "text-[6px]" : compact ? "text-[7px]" : "text-[9px]", "opacity-80")}>Min 8</div>
                         {isOccupied && (
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="rounded bg-gray-900/80 px-1 py-0.5 text-[8px] font-bold text-white">
+                            <span className={cn("rounded bg-gray-900/80 font-bold text-white", narrow ? "px-0.5 py-0.5 text-[5px]" : "px-1 py-0.5 text-[8px]")}>
                               OCUPADA
                             </span>
                           </div>
