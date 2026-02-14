@@ -140,6 +140,8 @@ export function PendingPayments() {
                 <CardTitle className="text-white">
                   {request.table_id === 'sin-mesa'
                     ? `Cover sin mesa - ${request.quantity} ${request.quantity === 1 ? 'cover' : 'covers'}`
+                    : request.table_id === 'mesa-1'
+                    ? `Mesa RPS - ${request.quantity} ${request.quantity === 1 ? 'cover' : 'covers'}`
                     : `Mesa ${request.table_id.replace(/^mesa-/, '')} - ${request.quantity} ${request.quantity === 1 ? 'cover' : 'covers'}`}
                 </CardTitle>
                 <CardDescription className="text-white/60">

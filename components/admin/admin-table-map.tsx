@@ -22,8 +22,9 @@ import {
 import { Loader2, Check, Move } from "lucide-react"
 import { toast } from "sonner"
 
-// Lista de todas las mesas del mapa (mismo orden que TableMap)
+// Lista de todas las mesas del mapa (incluye RPS = 1)
 const ALL_TABLE_IDS = [
+  1, // RPS
   ...Array.from({ length: 7 }, (_, i) => i + 10),
   ...Array.from({ length: 6 }, (_, i) => i + 20),
   ...Array.from({ length: 6 }, (_, i) => i + 31),
@@ -184,7 +185,7 @@ export function AdminTableMap() {
         <DialogContent className="max-w-[300px] gap-3 p-4 border-white/10 bg-black/95 text-white sm:max-w-[300px]">
           <DialogHeader className="pb-1">
             <DialogTitle className="text-base text-white">
-              Mesa {selectedTableId ?? ""}
+              {selectedTableId === 1 ? "RPS" : `Mesa ${selectedTableId ?? ""}`}
             </DialogTitle>
           </DialogHeader>
           {covers.length > 0 && (
@@ -230,7 +231,7 @@ export function AdminTableMap() {
                               value={`mesa-${id}`}
                               className="text-white focus:bg-white/10"
                             >
-                              Mesa {id}
+                              {id === 1 ? "RPS" : `Mesa ${id}`}
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -357,7 +357,7 @@ export function TableDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-white">
-                    {table.tableId === 'sin-mesa' ? 'Cover sin mesa' : `Mesa ${table.tableId.replace('mesa-', '')}`}
+                    {table.tableId === 'sin-mesa' ? 'Cover sin mesa' : table.tableId === 'mesa-1' ? 'RPS' : `Mesa ${table.tableId.replace('mesa-', '')}`}
                   </CardTitle>
                   <CardDescription className="text-white/60">
                     {table.totalCount} {table.totalCount === 1 ? 'cover' : 'covers'}
@@ -430,7 +430,7 @@ export function TableDashboard() {
                             <div>
                               <p className="text-sm text-white/80 mb-2">Mesa actual:</p>
                               <p className="text-white font-medium">
-                                {cover.table_id === 'sin-mesa' ? 'Cover sin mesa' : `Mesa ${cover.table_id.replace('mesa-', '')}`}
+                                {cover.table_id === 'sin-mesa' ? 'Cover sin mesa' : cover.table_id === 'mesa-1' ? 'RPS' : `Mesa ${cover.table_id.replace('mesa-', '')}`}
                               </p>
                             </div>
                             <div>

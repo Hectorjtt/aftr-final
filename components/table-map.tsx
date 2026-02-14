@@ -150,9 +150,34 @@ export function TableMap({ selectedTable, onSelectTable, size: sizeProp, compact
             compact && !narrow && "grid-cols-[100px_1fr_70px] gap-2 lg:gap-3",
             !small && "grid-cols-[180px_1fr_120px] gap-4 lg:gap-6"
           )}>
-            {/* Left Side - BARRA */}
-            <div className="flex h-full items-center justify-center rounded-lg border-2 border-white/20 bg-gradient-to-b from-gray-900 to-black">
-              <div className={cn("rotate-180 text-center font-bold text-white [writing-mode:vertical-lr]", narrow && "text-[8px]")}>BARRA</div>
+            {/* Left Side - BARRA + RPS (mesa 1, abajo y alejada) */}
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-1 min-h-0 items-center justify-center rounded-lg border-2 border-white/20 bg-gradient-to-b from-gray-900 to-black">
+                <div className={cn("rotate-180 text-center font-bold text-white [writing-mode:vertical-lr]", narrow && "text-[8px]")}>BARRA</div>
+              </div>
+              <motion.button
+                type="button"
+                onClick={() => onSelectTable(1)}
+                whileHover={{ scale: isTableOccupied(1) ? 1 : 1.05 }}
+                whileTap={{ scale: isTableOccupied(1) ? 1 : 0.95 }}
+                className={cn(
+                  "relative flex aspect-square items-center justify-center self-center rounded-lg border-2 font-bold transition-all",
+                  narrow ? "h-9 w-9" : compact ? "h-11 w-11" : "h-14 w-14",
+                  selectedTable === 1 ? getSelectedColor("RPS", 1) : getSectionColor("RPS", 1),
+                  selectedTable === 1 && !isTableOccupied(1) ? "text-white shadow-lg shadow-red-500/50" : "text-white",
+                )}
+              >
+                <div className="text-center">
+                  <div className={cn(narrow ? "text-xs" : compact ? "text-sm" : "text-base")}>RPS</div>
+                </div>
+                {isTableOccupied(1) && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className={cn("rounded bg-gray-900/80 font-bold text-white", narrow ? "px-0.5 py-0 text-[5px]" : compact ? "px-1 py-0.5 text-[6px]" : "px-1.5 py-0.5 text-[7px]")}>
+                      OCUPADA
+                    </span>
+                  </div>
+                )}
+              </motion.button>
             </div>
 
             {/* Center - Main Table Area */}

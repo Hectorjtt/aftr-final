@@ -93,7 +93,7 @@ export function TicketsList({ userId }: { userId: string }) {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-white">
-                  {groupTickets[0].table_id === "sin-mesa" ? "Cover sin mesa" : `Mesa - ${groupTickets[0].table_id.replace(/^mesa-/, "")}`}
+                  {groupTickets[0].table_id === "sin-mesa" ? "Cover sin mesa" : groupTickets[0].table_id === "mesa-1" ? "RPS" : `Mesa - ${groupTickets[0].table_id.replace(/^mesa-/, "")}`}
                 </h3>
                 <p className="text-sm text-white/60">
                   {groupTickets.length} {groupTickets.length === 1 ? 'ticket' : 'tickets'}

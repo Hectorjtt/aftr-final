@@ -595,11 +595,20 @@ export function PurchaseForm() {
                         <span className="font-medium">Monto a transferir:</span>
                         <span className="text-2xl font-bold text-orange-500">${totalPriceFormatted}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Referencia:</span>
-                        <span className="font-mono text-sm">
-                          {transferReference || "—"}
-                        </span>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-white">Referencia</span>
+                          <button
+                            type="button"
+                            onClick={() => transferReference && navigator.clipboard.writeText(transferReference)}
+                            className="p-1 rounded hover:bg-white/10 text-white/80 hover:text-white disabled:opacity-50"
+                            title="Copiar referencia"
+                            disabled={!transferReference}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <p className="font-mono text-sm text-white">{transferReference || "—"}</p>
                       </div>
                     </div>
                   </div>

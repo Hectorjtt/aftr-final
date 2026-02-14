@@ -109,7 +109,7 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
           {getStatusIcon()}
         </div>
         <p className="text-xs text-white/60">
-          {ticket.table_id === "sin-mesa" ? "Cover sin mesa" : `Mesa - ${ticket.table_id.replace(/^mesa-/, "")}`}
+          {ticket.table_id === "sin-mesa" ? "Cover sin mesa" : ticket.table_id === "mesa-1" ? "RPS" : `Mesa - ${ticket.table_id.replace(/^mesa-/, "")}`}
         </p>
         <p className="text-xs text-white/60">Estado: {getStatusText()}</p>
       </CardHeader>
