@@ -237,6 +237,52 @@ export async function rejectPurchaseRequest(
   }
 }
 
+// Función para obtener tickets de una mesa (para admin) - solo aprobados y usados
+export async function getTicketsByTable(tableId: number) {
+  const tableIdStr = tableId.toString()
+  const mesaId = tableIdStr.startsWith('mesa-') ? tableIdStr : `mesa-${tableIdStr}`
+
+  const { data, error } = await supabase
+    .from('tickets')
+    .select('id, cover_name, table_id, status')
+    .eq('table_id', mesaId)
+    .in('status', ['approved', 'used'])
+    .order('cover_name', { ascending: true })
+
+  if (error) {
+    console.error('Error al obtener tickets por mesa:', error)
+    return { data: null, error }
+  }
+
+  return { data: data ?? [], error: null }
+}
+
+// Función para actualizar el nombre de un cover (ticket)
+export async function updateTicketCoverName(
+  ticketId: number,
+  newName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const trimmed = newName.trim()
+    if (!trimmed) {
+      return { success: false, error: 'El nombre no puede estar vacío' }
+    }
+
+    const { error } = await supabase
+      .from('tickets')
+      .update({ cover_name: trimmed })
+      .eq('id', ticketId)
+
+    if (error) {
+      console.error('Error al actualizar cover:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error desconocido' }
+  }
+}
+
 // Función para obtener todos los tickets (para admin)
 export async function getAllTickets() {
   // Simplificar la consulta para evitar problemas con foreign keys
