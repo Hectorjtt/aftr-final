@@ -108,7 +108,9 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
           <CardTitle className="text-lg text-white">{ticket.cover_name}</CardTitle>
           {getStatusIcon()}
         </div>
-        <p className="text-xs text-white/60">Mesa {ticket.table_id}</p>
+        <p className="text-xs text-white/60">
+          {ticket.table_id === "sin-mesa" ? "Cover sin mesa" : `Mesa - ${ticket.table_id.replace(/^mesa-/, "")}`}
+        </p>
         <p className="text-xs text-white/60">Estado: {getStatusText()}</p>
       </CardHeader>
       <CardContent className="space-y-4">
