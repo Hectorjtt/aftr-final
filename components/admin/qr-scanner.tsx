@@ -188,13 +188,13 @@ export function QRScanner({ userId }: { userId: string }) {
         message: scanResult.error || "Error al escanear ticket",
       })
     }
-    
-    // Permitir escanear otro ticket después de 2 segundos
-    setTimeout(() => {
-      setIsProcessing(false)
-      setResult(null) // Limpiar el resultado anterior
-      lastScannedCode.current = "" // Permitir escanear el mismo código después de un tiempo
-    }, 2000)
+    // No auto-limpiar: el usuario debe pulsar "Aceptar" para poder escanear el siguiente
+  }
+
+  const dismissResult = () => {
+    setResult(null)
+    setIsProcessing(false)
+    lastScannedCode.current = ""
   }
 
   const handleManualScan = async () => {
@@ -204,7 +204,7 @@ export function QRScanner({ userId }: { userId: string }) {
     }
 
     const scanResult = await scanTicket(manualCode.trim(), userId)
-    
+    setIsProcessing(true)
     if (scanResult.success) {
       setResult({
         success: true,
@@ -342,36 +342,49 @@ export function QRScanner({ userId }: { userId: string }) {
             <Card
               className={`border ${
                 result.success
-                  ? "border-green-500/50 bg-green-500/10"
+                  ? "border-green-500 bg-green-500/20"
                   : "border-red-500/50 bg-red-500/10"
               }`}
             >
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  {result.success ? (
-                    <CheckCircle className="h-5 w-5 text-green-400" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-400" />
-                  )}
-                  <div className="flex-1">
-                    <p
-                      className={`font-medium ${
-                        result.success ? "text-green-400" : "text-red-400"
-                      }`}
-                    >
-                      {result.message}
-                    </p>
-                    {result.success && result.ticket && (
-                      <div className="mt-2 space-y-1 text-sm text-white/80">
-                        <p>Mesa: {result.ticket.table_id}</p>
-                        <p>Nombre: {result.ticket.cover_name}</p>
-                        <p>
-                          Escaneado:{" "}
-                          {new Date().toLocaleString("es-MX")}
-                        </p>
-                      </div>
+              <CardContent className="pt-6 pb-6">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start gap-3">
+                    {result.success ? (
+                      <CheckCircle className="h-8 w-8 shrink-0 text-green-400" />
+                    ) : (
+                      <XCircle className="h-5 w-5 shrink-0 text-red-400" />
                     )}
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={`font-semibold text-lg ${
+                          result.success ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {result.success ? "Escaneado correctamente" : "Error al escanear"}
+                      </p>
+                      <p className="mt-1 text-sm text-white/80">{result.message}</p>
+                      {result.success && result.ticket && (
+                        <div className="mt-3 space-y-1 text-sm text-white/80 rounded bg-black/20 p-3">
+                          <p>Mesa: {result.ticket.table_id}</p>
+                          <p>Nombre: {result.ticket.cover_name}</p>
+                          <p>Escaneado: {new Date().toLocaleString("es-MX")}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  <Button
+                    onClick={dismissResult}
+                    className={`w-full ${
+                      result.success
+                        ? "bg-green-600 hover:bg-green-700 text-white"
+                        : "bg-red-600/80 hover:bg-red-700 text-white"
+                    }`}
+                  >
+                    Aceptar
+                  </Button>
+                  <p className="text-center text-xs text-white/50">
+                    {result.success ? "Pulsa Aceptar para escanear el siguiente ticket" : "Pulsa Aceptar para intentar de nuevo"}
+                  </p>
                 </div>
               </CardContent>
             </Card>
