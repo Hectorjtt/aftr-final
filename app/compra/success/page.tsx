@@ -2,7 +2,7 @@
 
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,7 +10,7 @@ import { CheckCircleIcon } from "@heroicons/react/24/solid"
 import { Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
-export default function CompraSuccessPage() {
+function CompraSuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session_id")
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
@@ -118,5 +118,25 @@ export default function CompraSuccessPage() {
       </main>
       <Footer />
     </div>
+  )
+}
+
+export default function CompraSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen">
+          <Header />
+          <main className="py-16">
+            <div className="container mx-auto px-4 flex justify-center">
+              <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
+            </div>
+          </main>
+          <Footer />
+        </div>
+      }
+    >
+      <CompraSuccessContent />
+    </Suspense>
   )
 }
