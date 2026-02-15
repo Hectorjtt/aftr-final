@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TableMap } from "@/components/table-map"
 import { CheckCircleIcon } from "@heroicons/react/24/solid"
-import { Copy } from "lucide-react"
+import { Copy, CreditCard, Landmark } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 type FormData = {
@@ -30,14 +30,16 @@ const stepsWithTable = [
   { id: 2, title: "Cantidad de Covers", description: "¿Cuántos covers necesitas?" },
   { id: 3, title: "Nombres", description: "Ingresa los nombres para cada cover" },
   { id: 4, title: "Términos y Condiciones", description: "Lee y acepta las políticas del evento" },
-  { id: 5, title: "Pago", description: "Completa tu transferencia" },
+  { id: 5, title: "Método de pago", description: "Elige cómo quieres pagar" },
+  { id: 6, title: "Pago", description: "Completa tu pago" },
 ]
 
 const stepsSinMesa = [
   { id: 1, title: "Cantidad de Covers", description: "¿Cuántos covers necesitas?" },
   { id: 2, title: "Nombres", description: "Ingresa los nombres para cada cover" },
   { id: 3, title: "Términos y Condiciones", description: "Lee y acepta las políticas del evento" },
-  { id: 4, title: "Pago", description: "Completa tu transferencia" },
+  { id: 4, title: "Método de pago", description: "Elige cómo quieres pagar" },
+  { id: 5, title: "Pago", description: "Completa tu pago" },
 ]
 
 const TERMS_CONTENT = [
@@ -63,6 +65,8 @@ export function PurchaseForm() {
   const [transferReference, setTransferReference] = useState<string | null>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [hasProofFile, setHasProofFile] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'card' | null>(null)
+  const [cardLoading, setCardLoading] = useState(false)
   const { user, loading } = useSupabaseUser()
   const router = useRouter()
 
@@ -79,10 +83,10 @@ export function PurchaseForm() {
   }, [loading, user, router])
 
   useEffect(() => {
-    if (purchaseType && currentStep === maxStep && !transferReference) {
+    if (purchaseType && currentStep === maxStep && paymentMethod === 'transfer' && !transferReference) {
       setTransferReference(generateReference())
     }
-  }, [purchaseType, currentStep, maxStep, transferReference])
+  }, [purchaseType, currentStep, maxStep, paymentMethod, transferReference])
 
   const {
     register,
@@ -143,6 +147,7 @@ export function PurchaseForm() {
         total_price: totalPrice,
         status: 'pending' as const,
         reference: ref,
+        payment_method: 'transfer' as const,
       }
       let { error: dbError } = await supabase.from('purchase_requests').insert(insertPayload)
       if (dbError?.code === '23505' && ref) {
@@ -309,23 +314,28 @@ export function PurchaseForm() {
     <div>
       {/* Progress Bar */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between">
           {steps.map((step, index) => (
             <div key={step.id} className="flex flex-1 items-center">
-              <div className="flex flex-col items-center">
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
-                    currentStep >= step.id
-                      ? "border-orange-500 bg-orange-500 text-black"
-                      : "border-white/20 bg-white/5 text-white/40"
-                  }`}
-                >
-                  {currentStep > step.id ? <CheckCircleIcon className="h-6 w-6" /> : step.id}
+              <div className="flex flex-col items-center w-full">
+                {/* Franja fija para que todos los círculos queden a la misma altura */}
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
+                      currentStep >= step.id
+                        ? "border-orange-500 bg-orange-500 text-black"
+                        : "border-white/20 bg-white/5 text-white/40"
+                    }`}
+                  >
+                    {currentStep > step.id ? <CheckCircleIcon className="h-6 w-6" /> : step.id}
+                  </div>
                 </div>
-                <span className="mt-2 hidden text-xs text-white/60 md:block">{step.title}</span>
+                <span className="mt-2 hidden text-center text-xs text-white/60 md:block">{step.title}</span>
               </div>
               {index < steps.length - 1 && (
-                <div className={`mx-2 h-0.5 flex-1 ${currentStep > step.id ? "bg-orange-500" : "bg-white/20"}`} />
+                <div className="flex h-10 flex-1 shrink items-center mx-2">
+                  <div className={`h-0.5 w-full ${currentStep > step.id ? "bg-orange-500" : "bg-white/20"}`} />
+                </div>
               )}
             </div>
           ))}
@@ -334,10 +344,9 @@ export function PurchaseForm() {
 
       <form 
         onSubmit={(e) => {
-          if (currentStep === maxStep) {
+          e.preventDefault()
+          if (currentStep === maxStep && paymentMethod === 'transfer') {
             handleSubmit(onSubmit)(e)
-          } else {
-            e.preventDefault()
           }
         }}
         onKeyDown={(e) => {
@@ -537,10 +546,56 @@ export function PurchaseForm() {
                 </motion.div>
               )}
 
-              {/* Step 5: Payment (con mesa) o Step 4 (sin mesa) */}
+              {/* Step 5 (con mesa) / 4 (sin mesa): Método de pago */}
               {((!isSinMesa && currentStep === 5) || (isSinMesa && currentStep === 4)) && (
                 <motion.div
-                  key="step-payment"
+                  key="step-method"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-4"
+                >
+                  <p className="text-sm text-white/80">Elige cómo quieres pagar:</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setPaymentMethod('transfer')}
+                      className={`h-auto flex-col gap-2 py-6 text-white transition-all ${
+                        paymentMethod === 'transfer'
+                          ? 'border-2 border-orange-500 bg-orange-500/30 ring-2 ring-orange-500/50 ring-offset-2 ring-offset-[var(--background)]'
+                          : 'border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40'
+                      }`}
+                    >
+                      <Landmark className="h-8 w-8" />
+                      <span>Transferencia bancaria</span>
+                      <span className="text-xs font-normal opacity-80">CLABE y comprobante</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setPaymentMethod('card')}
+                      className={`h-auto flex-col gap-2 py-6 text-white transition-all ${
+                        paymentMethod === 'card'
+                          ? 'border-2 border-orange-500 bg-orange-500/30 ring-2 ring-orange-500/50 ring-offset-2 ring-offset-[var(--background)]'
+                          : 'border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40'
+                      }`}
+                    >
+                      <CreditCard className="h-8 w-8" />
+                      <span>Pago con tarjeta</span>
+                      <span className="text-xs font-normal opacity-80">Visa, Mastercard, etc.</span>
+                    </Button>
+                  </div>
+                  <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
+                    <p className="text-xl font-bold text-orange-500">Total: ${totalPriceFormatted}</p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 6 (con mesa) / 5 (sin mesa): Pago - Transferencia */}
+              {paymentMethod === 'transfer' && ((!isSinMesa && currentStep === 6) || (isSinMesa && currentStep === 5)) && (
+                <motion.div
+                  key="step-payment-transfer"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -637,6 +692,33 @@ export function PurchaseForm() {
                   )}
                 </motion.div>
               )}
+
+              {/* Step 6 (con mesa) / 5 (sin mesa): Pago - Tarjeta */}
+              {paymentMethod === 'card' && ((!isSinMesa && currentStep === 6) || (isSinMesa && currentStep === 5)) && (
+                <motion.div
+                  key="step-payment-card"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div className="rounded-lg border border-white/10 bg-black/30 p-6">
+                    <h3 className="mb-4 text-xl font-semibold text-white">Pago con tarjeta</h3>
+                    <p className="mb-4 text-white/80">
+                      Serás redirigido a un formulario seguro de Stripe para ingresar los datos de tu tarjeta.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-4">
+                      <span className="font-medium text-white">Total a pagar:</span>
+                      <span className="text-2xl font-bold text-orange-500">${totalPriceFormatted}</span>
+                    </div>
+                  </div>
+                  {submitError && (
+                    <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
+                      <p className="text-sm text-red-400">{submitError}</p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
             </AnimatePresence>
           </CardContent>
         </Card>
@@ -671,17 +753,75 @@ export function PurchaseForm() {
                   if (currentStep === 1) return !formData.quantity || formData.quantity < 1
                   if (currentStep === 2) return !namesFilled()
                   if (currentStep === 3) return !termsAccepted
+                  if (currentStep === 4) return paymentMethod === null
                 } else {
                   if (currentStep === 1) return !formData.table
                   if (currentStep === 2) return !formData.quantity || formData.quantity < 1
                   if (currentStep === 3) return !namesFilled()
                   if (currentStep === 4) return !termsAccepted
+                  if (currentStep === 5) return paymentMethod === null
                 }
                 return false
               })()}
               className="bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50"
             >
               Siguiente
+            </Button>
+          ) : paymentMethod === 'card' ? (
+            <Button
+              type="button"
+              disabled={cardLoading}
+              onClick={async () => {
+                if (!user || !formData.table || !formData.quantity || !formData.names?.length) return
+                setCardLoading(true)
+                setSubmitError(null)
+                try {
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const headers: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token && { Authorization: `Bearer ${session.access_token}` }),
+                  }
+                  if (session?.refresh_token) headers['X-Refresh-Token'] = session.refresh_token
+                  const res = await fetch('/api/stripe/create-checkout-session', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers,
+                    body: JSON.stringify({
+                      table_id: formData.table,
+                      quantity: formData.quantity,
+                      names: formData.names?.slice(0, formData.quantity) || [],
+                      total_price: totalPrice,
+                    }),
+                  })
+                  const data = await res.json().catch(() => ({}))
+                  if (!res.ok) {
+                    setSubmitError(data?.error || 'No se pudo iniciar el pago')
+                    return
+                  }
+                  if (data?.url) {
+                    window.location.href = data.url
+                  } else {
+                    setSubmitError('No se recibió la URL de pago')
+                  }
+                } catch (err) {
+                  setSubmitError(err instanceof Error ? err.message : 'Error al conectar con el pago')
+                } finally {
+                  setCardLoading(false)
+                }
+              }}
+              className="bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50"
+            >
+              {cardLoading ? (
+                <>
+                  <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
+                  Redirigiendo...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Pagar con tarjeta
+                </>
+              )}
             </Button>
           ) : (
             <Button 

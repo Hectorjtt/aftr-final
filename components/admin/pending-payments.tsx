@@ -23,6 +23,7 @@ interface PurchaseRequest {
   status: string
   created_at: string
   reference?: string | null
+  payment_method?: string | null
   user: {
     id: string
     email: string | null
@@ -143,6 +144,9 @@ export function PendingPayments() {
                     : request.table_id === 'mesa-1'
                     ? `Mesa RPS - ${request.quantity} ${request.quantity === 1 ? 'cover' : 'covers'}`
                     : `Mesa ${request.table_id.replace(/^mesa-/, '')} - ${request.quantity} ${request.quantity === 1 ? 'cover' : 'covers'}`}
+                  {request.payment_method === 'card' && (
+                    <span className="ml-2 rounded bg-green-500/20 px-2 py-0.5 text-xs text-green-400">Tarjeta</span>
+                  )}
                 </CardTitle>
                 <CardDescription className="text-white/60">
                   {request.user?.email || `Usuario ID: ${request.user_id?.substring(0, 8)}...` || 'Usuario desconocido'}
