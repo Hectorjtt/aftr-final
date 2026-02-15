@@ -188,7 +188,7 @@ export function QRScanner({ userId }: { userId: string }) {
         message: scanResult.error || "Error al escanear ticket",
       })
     }
-    // No auto-limpiar: el usuario debe pulsar "Aceptar" para poder escanear el siguiente
+    // No auto-limpiar: el usuario debe pulsar "Aceptar" para poder escanear el siguienteeeeee
   }
 
   const dismissResult = () => {
