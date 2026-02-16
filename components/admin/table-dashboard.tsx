@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getAllTickets, moveCoverToTable } from "@/lib/admin"
+import { getAllTickets, movePurchaseOrderToTable, moveTicketsToTable } from "@/lib/admin"
 import { supabase } from "@/lib/supabase"
 import { eventConfig } from "@/lib/event-config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,25 +22,23 @@ interface Ticket {
   created_at: string
   scanned_by: string | null
   user_id?: string
+  purchase_request_id?: number | null
 }
 
-interface GroupedTable {
-  tableId: string
-  covers: Ticket[]
-  approvedCount: number
-  usedCount: number
-  pendingCount: number
-  totalCount: number
+interface GroupedOrder {
+  purchaseRequestId: number | null
+  tickets: Ticket[]
+  orderCreatedAt: string
 }
 
 export function TableDashboard() {
-  const [tables, setTables] = useState<GroupedTable[]>([])
+  const [orders, setOrders] = useState<GroupedOrder[]>([])
   const [userPhones, setUserPhones] = useState<Record<string, string | null>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [movingCover, setMovingCover] = useState<number | null>(null)
+  const [movingOrderKey, setMovingOrderKey] = useState<string | null>(null)
   const [moveDialogOpen, setMoveDialogOpen] = useState(false)
-  const [selectedCover, setSelectedCover] = useState<Ticket | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<GroupedOrder | null>(null)
   const [selectedNewTable, setSelectedNewTable] = useState<string>("")
 
   useEffect(() => {
@@ -65,16 +63,16 @@ export function TableDashboard() {
       }
 
       if (!data || data.length === 0) {
-        setTables([])
+        setOrders([])
         setLoading(false)
         return
       }
 
       // Filtrar solo tickets aprobados (para ver covers activos)
-      const approvedTickets = data.filter((ticket: Ticket) => ticket.status === 'approved' || ticket.status === 'used')
+      const approvedTickets = data.filter((ticket: Ticket) => ticket.status === 'approved' || ticket.status === 'used') as Ticket[]
 
       // Obtener teléfonos de user_roles para cada user_id
-      const userIds = [...new Set((approvedTickets as Ticket[]).map((t) => t.user_id).filter(Boolean))] as string[]
+      const userIds = [...new Set(approvedTickets.map((t) => t.user_id).filter(Boolean))] as string[]
       const phonesMap: Record<string, string | null> = {}
       if (userIds.length > 0) {
         const { data: rolesData } = await supabase
@@ -86,44 +84,27 @@ export function TableDashboard() {
         })
       }
       setUserPhones(phonesMap)
-      
-      // Agrupar por mesa
-      const grouped = approvedTickets.reduce((acc: Record<string, GroupedTable>, ticket: Ticket) => {
-        const tableId = ticket.table_id || 'sin-mesa'
-        
-        if (!acc[tableId]) {
-          acc[tableId] = {
-            tableId,
-            covers: [],
-            approvedCount: 0,
-            usedCount: 0,
-            pendingCount: 0,
-            totalCount: 0,
-          }
-        }
-        
-        acc[tableId].covers.push(ticket)
-        acc[tableId].totalCount++
-        
-        if (ticket.status === 'approved') {
-          acc[tableId].approvedCount++
-        } else if (ticket.status === 'used') {
-          acc[tableId].usedCount++
-        } else if (ticket.status === 'pending') {
-          acc[tableId].pendingCount++
-        }
-        
+
+      // Agrupar por orden de compra (purchase_request_id)
+      const byOrder = approvedTickets.reduce<Record<string, { tickets: Ticket[] }>>((acc, ticket) => {
+        const key = ticket.purchase_request_id != null ? String(ticket.purchase_request_id) : 'sin-orden'
+        if (!acc[key]) acc[key] = { tickets: [] }
+        acc[key].tickets.push(ticket)
         return acc
       }, {})
 
-      // Convertir a array y ordenar por número de mesa
-      const tablesArray = Object.values(grouped).sort((a, b) => {
-        const numA = parseInt(a.tableId.replace(/\D/g, '')) || 0
-        const numB = parseInt(b.tableId.replace(/\D/g, '')) || 0
-        return numA - numB
+      const ordersArray: GroupedOrder[] = Object.entries(byOrder).map(([key, { tickets }]) => {
+        const orderCreatedAt = tickets.reduce<string>((min, t: Ticket) => (t.created_at < min ? t.created_at : min), tickets[0].created_at)
+        return {
+          purchaseRequestId: key === 'sin-orden' ? null : parseInt(key, 10),
+          tickets,
+          orderCreatedAt,
+        }
       })
 
-      setTables(tablesArray)
+      // Ordenar por fecha de orden (más reciente primero)
+      ordersArray.sort((a, b) => new Date(b.orderCreatedAt).getTime() - new Date(a.orderCreatedAt).getTime())
+      setOrders(ordersArray)
     } catch (err) {
       console.error('Error:', err)
       setError('Error al cargar los datos')
@@ -147,16 +128,6 @@ export function TableDashboard() {
     }
   }
 
-  // Mínimo de covers para considerar una mesa "ocupada" (igual que en el mapa)
-  const MIN_COVERS_OCCUPIED = 5
-
-  // Mínimo por zona para "mínimo de covers" (pista 12, resto 10)
-  const getMinCovers = (tableId: string) => {
-    const num = parseInt(tableId.replace(/\D/g, ''), 10) || 0
-    const pista = [31, 32, 33, 34, 35, 36, 41, 42, 43, 44, 45, 46]
-    return pista.includes(num) ? 12 : 10
-  }
-
   const getStatusBadge = (status: string) => {
     // Solo mostrar etiqueta si está usado, los aprobados no necesitan etiqueta
     if (status === 'used') {
@@ -166,44 +137,45 @@ export function TableDashboard() {
     return null
   }
 
-  const handleMoveCover = (cover: Ticket) => {
-    setSelectedCover(cover)
+  const handleMoveOrder = (order: GroupedOrder) => {
+    setSelectedOrder(order)
     setSelectedNewTable("")
     setMoveDialogOpen(true)
   }
 
-  const confirmMoveCover = async () => {
-    if (!selectedCover || !selectedNewTable) {
+  const confirmMoveOrder = async () => {
+    if (!selectedOrder || !selectedNewTable) {
       toast.error("Por favor selecciona una mesa destino")
       return
     }
-
-    if (selectedCover.table_id === selectedNewTable) {
-      toast.error("El cover ya está en esa mesa")
+    const currentTable = selectedOrder.tickets[0]?.table_id
+    if (currentTable === selectedNewTable) {
+      toast.error("La orden ya está en esa mesa")
       setMoveDialogOpen(false)
       return
     }
 
-    setMovingCover(selectedCover.id)
-    
+    const orderKey = selectedOrder.purchaseRequestId != null ? String(selectedOrder.purchaseRequestId) : selectedOrder.tickets.map((t) => t.id).join('-')
+    setMovingOrderKey(orderKey)
     try {
-      const result = await moveCoverToTable(selectedCover.id, selectedNewTable)
-      
+      const result = selectedOrder.purchaseRequestId != null
+        ? await movePurchaseOrderToTable(selectedOrder.purchaseRequestId, selectedNewTable)
+        : await moveTicketsToTable(selectedOrder.tickets.map((t) => t.id), selectedNewTable)
       if (result.success) {
-        toast.success(`Cover movido exitosamente a Mesa ${selectedNewTable.replace('mesa-', '')}`)
+        const count = selectedOrder.tickets.length
+        toast.success(`${count} cover${count !== 1 ? 's' : ''} movido${count !== 1 ? 's' : ''} a Mesa ${selectedNewTable.replace('mesa-', '')}`)
         setMoveDialogOpen(false)
-        setSelectedCover(null)
+        setSelectedOrder(null)
         setSelectedNewTable("")
-        // Recargar los datos
         await loadData()
       } else {
-        toast.error(result.error || "Error al mover el cover")
+        toast.error(result.error || "Error al mover la orden")
       }
-    } catch (error: any) {
-      console.error("Error al mover cover:", error)
-      toast.error("Error al mover el cover")
+    } catch (err: any) {
+      console.error("Error al mover orden:", err)
+      toast.error("Error al mover la orden")
     } finally {
-      setMovingCover(null)
+      setMovingOrderKey(null)
     }
   }
 
@@ -261,12 +233,11 @@ export function TableDashboard() {
     return allTables
   }
 
-  // Obtener lista de mesas disponibles (excluyendo la mesa actual del cover)
+  // Obtener lista de mesas disponibles (excluyendo la mesa actual de la orden)
   const getAvailableTables = () => {
     const allTables = getAllTablesFromMap()
-    return allTables.filter(
-      table => !selectedCover || table.id !== selectedCover.table_id
-    )
+    const currentTable = selectedOrder?.tickets[0]?.table_id
+    return allTables.filter((table) => table.id !== currentTable)
   }
 
   if (loading) {
@@ -294,7 +265,7 @@ export function TableDashboard() {
     )
   }
 
-  if (tables.length === 0) {
+  if (orders.length === 0) {
     return (
       <Card className="border-white/10 bg-white/5">
         <CardContent className="pt-6">
@@ -312,6 +283,12 @@ export function TableDashboard() {
     )
   }
 
+  const tableLabel = (tableId: string) => {
+    if (tableId === 'sin-mesa') return 'Sin mesa'
+    if (tableId === 'mesa-1') return 'RPS'
+    return `Mesa ${tableId.replace('mesa-', '')}`
+  }
+
   return (
     <div className="space-y-6">
       {/* Resumen general */}
@@ -321,27 +298,25 @@ export function TableDashboard() {
             <Users className="h-5 w-5" />
             Resumen General
           </CardTitle>
-          <CardDescription className="text-white/60 space-y-1">
-            <span className="block">
-              Total de mesas ocupadas: {tables.filter((t) => t.totalCount >= MIN_COVERS_OCCUPIED).length}
-            </span>
-            <span className="block">
-              Total de mesas con mínimo de covers:{" "}
-              {tables.filter((t) => t.totalCount >= getMinCovers(t.tableId)).length}
-            </span>
+          <CardDescription className="text-white/60">
+            Órdenes de compra aprobadas (transferencia o tarjeta), ordenadas por fecha.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-lg border border-white/20 bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-white">{orders.length}</div>
+              <div className="text-sm text-white/60">Órdenes</div>
+            </div>
             <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 text-center">
               <div className="text-2xl font-bold text-blue-400">
-                {tables.reduce((sum, table) => sum + table.usedCount, 0)}
+                {orders.reduce((sum, o) => sum + o.tickets.filter((t) => t.status === 'used').length, 0)}
               </div>
               <div className="text-sm text-blue-300/80">Usados</div>
             </div>
             <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4 text-center">
               <div className="text-2xl font-bold text-orange-400">
-                {tables.reduce((sum, table) => sum + table.totalCount, 0)}
+                {orders.reduce((sum, o) => sum + o.tickets.length, 0)}
               </div>
               <div className="text-sm text-orange-300/80">Total Covers</div>
             </div>
@@ -349,151 +324,144 @@ export function TableDashboard() {
         </CardContent>
       </Card>
 
-      {/* Lista de mesas */}
+      {/* Lista de órdenes de compra */}
       <div className="space-y-4">
-        {tables.map((table) => (
-          <Card key={table.tableId} className="border-white/10 bg-white/5">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-white">
-                    {table.tableId === 'sin-mesa' ? 'Cover sin mesa' : table.tableId === 'mesa-1' ? 'RPS' : `Mesa ${table.tableId.replace('mesa-', '')}`}
-                  </CardTitle>
-                  <CardDescription className="text-white/60">
-                    {table.totalCount} {table.totalCount === 1 ? 'cover' : 'covers'}
-                  </CardDescription>
-                </div>
-                {table.usedCount > 0 && (
-                  <Badge variant="outline" className="border-blue-500/50 text-blue-400 bg-blue-500/10">
-                    {table.usedCount} usado{table.usedCount !== 1 ? 's' : ''}
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {table.covers.map((cover) => (
-                  <div
-                    key={cover.id}
-                    className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 p-4"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      {getStatusIcon(cover.status)}
-                      <div className="flex-1">
-                        <p className="font-medium text-white">{cover.cover_name}</p>
-                        <p className="text-xs text-white/60">
-                          Código: <span className="font-mono">{cover.qr_code}</span>
-                        </p>
-                        {cover.user_id && (userPhones[cover.user_id] != null) && (
-                          <p className="text-xs text-white/50 mt-0.5">
-                            Tel: {userPhones[cover.user_id]}
-                          </p>
-                        )}
-                        {cover.scanned_at && (
-                          <p className="text-xs text-blue-400 mt-1">
-                            Escaneado: {new Date(cover.scanned_at).toLocaleString('es-MX')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="ml-4 flex items-center gap-2">
-                      {getStatusBadge(cover.status)}
-                      <Dialog 
-                        open={moveDialogOpen && selectedCover?.id === cover.id} 
-                        onOpenChange={(open) => {
-                          if (!open) {
-                            setMoveDialogOpen(false)
-                            setSelectedCover(null)
-                            setSelectedNewTable("")
-                          }
-                        }}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleMoveCover(cover)}
-                            className="border-orange-500/50 text-orange-400 bg-orange-500/10 hover:bg-orange-500/20"
-                          >
-                            <Move className="h-3 w-3 mr-1" />
-                            Mover
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="border-white/10 bg-black/95 backdrop-blur-sm">
-                          <DialogHeader>
-                            <DialogTitle className="text-white">Mover Cover</DialogTitle>
-                            <DialogDescription className="text-white/60">
-                              Mover <strong className="text-white">{cover.cover_name}</strong> a otra mesa
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <div>
-                              <p className="text-sm text-white/80 mb-2">Mesa actual:</p>
-                              <p className="text-white font-medium">
-                                {cover.table_id === 'sin-mesa' ? 'Cover sin mesa' : cover.table_id === 'mesa-1' ? 'RPS' : `Mesa ${cover.table_id.replace('mesa-', '')}`}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-sm text-white/80 mb-2 block">
-                                Selecciona la mesa destino:
-                              </label>
-                              <Select
-                                value={selectedNewTable}
-                                onValueChange={setSelectedNewTable}
-                              >
-                                <SelectTrigger className="border-white/20 bg-white/5 text-white">
-                                  <SelectValue placeholder="Selecciona una mesa" />
-                                </SelectTrigger>
-                                <SelectContent className="border-white/10 bg-black/95">
-                                  {getAvailableTables().map((table) => (
-                                    <SelectItem
-                                      key={table.id}
-                                      value={table.id}
-                                      className="text-white focus:bg-white/10"
-                                    >
-                                      {table.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="flex justify-end gap-2 pt-4">
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setMoveDialogOpen(false)
-                                  setSelectedCover(null)
-                                  setSelectedNewTable("")
-                                }}
-                                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
-                              >
-                                Cancelar
-                              </Button>
-                              <Button
-                                onClick={confirmMoveCover}
-                                disabled={!selectedNewTable || movingCover === cover.id}
-                                className="bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50"
-                              >
-                                {movingCover === cover.id ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Moviendo...
-                                  </>
-                                ) : (
-                                  "Confirmar Movimiento"
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
+        {orders.map((order) => {
+          const orderKey = order.purchaseRequestId ?? `sin-orden-${order.tickets.map((t) => t.id).join('-')}`
+          const currentTable = order.tickets[0]?.table_id ?? 'sin-mesa'
+          const usedCount = order.tickets.filter((t) => t.status === 'used').length
+          const isMoving = movingOrderKey === orderKey
+          return (
+            <Card key={orderKey} className="border-white/10 bg-white/5">
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-white text-base">
+                      Orden · {new Date(order.orderCreatedAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
+                    </CardTitle>
+                    <CardDescription className="text-white/60">
+                      {order.tickets.length} {order.tickets.length === 1 ? 'cover' : 'covers'} · {tableLabel(currentTable)}
+                    </CardDescription>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                  <div className="flex items-center gap-2">
+                    {usedCount > 0 && (
+                      <Badge variant="outline" className="border-blue-500/50 text-blue-400 bg-blue-500/10">
+                        {usedCount} usado{usedCount !== 1 ? 's' : ''}
+                      </Badge>
+                    )}
+                    <Dialog
+                      open={moveDialogOpen && selectedOrder === order}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          setMoveDialogOpen(false)
+                          setSelectedOrder(null)
+                          setSelectedNewTable("")
+                        }
+                      }}
+                    >
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleMoveOrder(order)}
+                          className="border-orange-500/50 text-orange-400 bg-orange-500/10 hover:bg-orange-500/20"
+                        >
+                          <Move className="h-3 w-3 mr-1" />
+                          Mover orden
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="border-white/10 bg-black/95 backdrop-blur-sm">
+                        <DialogHeader>
+                          <DialogTitle className="text-white">Mover orden completa</DialogTitle>
+                          <DialogDescription className="text-white/60">
+                            Se moverán los {order.tickets.length} covers de esta orden a la mesa que elijas.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <p className="text-sm text-white/80 mb-2">Mesa actual:</p>
+                            <p className="text-white font-medium">{tableLabel(currentTable)}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm text-white/80 mb-2 block">Mesa destino:</label>
+                            <Select value={selectedNewTable} onValueChange={setSelectedNewTable}>
+                              <SelectTrigger className="border-white/20 bg-white/5 text-white">
+                                <SelectValue placeholder="Selecciona una mesa" />
+                              </SelectTrigger>
+                              <SelectContent className="border-white/10 bg-black/95">
+                                {getAvailableTables().map((t) => (
+                                  <SelectItem key={t.id} value={t.id} className="text-white focus:bg-white/10">
+                                    {t.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex justify-end gap-2 pt-4">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setMoveDialogOpen(false)
+                                setSelectedOrder(null)
+                                setSelectedNewTable("")
+                              }}
+                              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              onClick={confirmMoveOrder}
+                              disabled={!selectedNewTable || isMoving}
+                              className="bg-orange-500 text-black hover:bg-orange-400 disabled:opacity-50"
+                            >
+                              {isMoving ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Moviendo...
+                                </>
+                              ) : (
+                                "Mover todos"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {order.tickets.map((cover) => (
+                    <div
+                      key={cover.id}
+                      className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        {getStatusIcon(cover.status)}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-white">{cover.cover_name}</p>
+                          <p className="text-xs text-white/60">
+                            Código: <span className="font-mono">{cover.qr_code}</span>
+                          </p>
+                          {cover.user_id && userPhones[cover.user_id] != null && (
+                            <p className="text-xs text-white/50 mt-0.5">Tel: {userPhones[cover.user_id]}</p>
+                          )}
+                          {cover.scanned_at && (
+                            <p className="text-xs text-blue-400 mt-1">
+                              Escaneado: {new Date(cover.scanned_at).toLocaleString('es-MX')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div>{getStatusBadge(cover.status)}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )

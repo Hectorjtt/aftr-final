@@ -329,3 +329,46 @@ export async function moveCoverToTable(
   }
 }
 
+// Mover todos los covers de una orden de compra a otra mesa
+export async function movePurchaseOrderToTable(
+  purchaseRequestId: number,
+  newTableId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const formattedTableId = newTableId.startsWith('mesa-') ? newTableId : `mesa-${newTableId}`
+    const { error } = await supabase
+      .from('tickets')
+      .update({ table_id: formattedTableId })
+      .eq('purchase_request_id', purchaseRequestId)
+    if (error) {
+      console.error('[movePurchaseOrderToTable]', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error desconocido' }
+  }
+}
+
+// Mover varios tickets por ID (ej. grupo "sin orden") a una mesa
+export async function moveTicketsToTable(
+  ticketIds: number[],
+  newTableId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (ticketIds.length === 0) return { success: true }
+  try {
+    const formattedTableId = newTableId.startsWith('mesa-') ? newTableId : `mesa-${newTableId}`
+    const { error } = await supabase
+      .from('tickets')
+      .update({ table_id: formattedTableId })
+      .in('id', ticketIds)
+    if (error) {
+      console.error('[moveTicketsToTable]', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error desconocido' }
+  }
+}
+
