@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()
@@ -34,6 +32,8 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       )
     }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
     const body = await request.json()
     const { table_id, quantity, names, total_price } = body as {

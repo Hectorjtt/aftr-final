@@ -1,35 +1,39 @@
-# Qué pasaba con Vercel y GitHub
+# Cómo actualizar Producción en Vercel
 
-## El problema
+## Situación
 
-El código **sí estaba en GitHub** (tu `main` y `origin/main` coincidían en el commit `b97ebe7`).  
-Lo que fallaba era el **build en Vercel**:
+- **GitHub** tiene el código correcto (commit `06ba8ae` con el fix de Suspense y todo lo nuevo).
+- **Vercel Producción** sigue en el commit antiguo `1d7dd04` (por eso ves "Ready Stale" y "2d ago").
 
-- La página `/compra/success` usa `useSearchParams()`.
-- En **Next.js 16** esa página debe estar dentro de un **Suspense**.
-- Al no estarlo, el build fallaba al generar las páginas.
-- Cuando el build falla, **Vercel no actualiza el sitio** y sigue mostrando el **último despliegue que sí terminó bien** (una versión antigua, sin pago con tarjeta ni el “Aceptar” del escáner).
+## Opción A: Promover el deployment correcto (si ya existe)
 
-Por eso en local veías todo bien y en Vercel parecía que no se subían los cambios.
+1. Entra a tu proyecto en **Vercel** → pestaña **Deployments**.
+2. Busca un deployment cuyo **commit** sea **06ba8ae** o **b97ebe7** (no 1d7dd04).
+3. Si ese deployment está en estado **Ready** (verde):
+   - Abre los tres puntos **⋯** de ese deployment.
+   - Elige **"Promote to Production"** (o "Assign to Production").
+4. Así Producción pasará a usar ese build y verás pago con tarjeta y "Aceptar" en el escáner.
 
-## Lo que se corrigió
+## Opción B: Forzar un deployment nuevo desde GitHub
 
-En `app/compra/success/page.tsx` se envolvió el contenido que usa `useSearchParams()` en un `<Suspense>`, así el build de Next.js puede completarse y Vercel puede desplegar la versión nueva.
+1. En **Vercel** → **Deployments**.
+2. Arriba, botón **"Redeploy"** o **"Create Deployment"**.
+3. Elige la rama **main** y confirma. Eso lanzará un build con el último commit (`06ba8ae`).
+4. Cuando el nuevo deployment esté **Ready**, si no se asigna solo a Producción, repite el paso 3 de la Opción A para ese deployment.
 
-## Qué hacer ahora
+## Opción C: Comprobar la conexión GitHub ↔ Vercel
 
-1. **Hacer commit y push** del cambio de `app/compra/success/page.tsx`:
+1. **Vercel** → tu proyecto → **Settings** → **Git**.
+2. Comprueba que el repositorio conectado sea el correcto (`Hectorjtt/aftr-final` o el que uses).
+3. En **Production Branch** debe estar **main**.
+4. Si quieres, haz un **push vacío** para disparar un nuevo deploy:
    ```bash
-   git add app/compra/success/page.tsx
-   git commit -m "fix: Suspense en compra/success para que el build pase en Vercel"
+   git commit --allow-empty -m "trigger vercel deploy"
    git push origin main
    ```
 
-2. En **Vercel**:
-   - Se lanzará un nuevo deployment al hacer push.
-   - Revisa la pestaña **Deployments**: el último debe pasar a **Ready** (build exitoso).
-   - Si algún deployment falla, entra a **View build logs** para ver el error.
+## Después de actualizar
 
-3. Cuando el deployment esté **Ready**, abre tu URL de producción (o la de preview del último commit) y haz un **refresco forzado** (Ctrl+Shift+R o Cmd+Shift+R) para no cargar caché antigua.
-
-Después de esto deberías ver en producción tanto el **pago con tarjeta** como el **“Aceptar”** en el escáner QR.
+- Abre tu URL de producción (ej. `aftr-final.vercel.app`).
+- Haz **refresco forzado**: `Ctrl+Shift+R` (Windows) o `Cmd+Shift+R` (Mac), o prueba en ventana de incógnito.
+- Deberías ver el pago con tarjeta y el "Aceptar" en el escáner QR.
