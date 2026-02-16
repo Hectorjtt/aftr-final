@@ -5,6 +5,7 @@ import { Html5Qrcode } from "html5-qrcode"
 import { scanTicket } from "@/lib/tickets"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CheckCircle, XCircle, Camera, Loader2 } from "lucide-react"
 
 export function QRScanner({ userId }: { userId: string }) {
@@ -338,57 +339,36 @@ export function QRScanner({ userId }: { userId: string }) {
             </div>
           )}
 
-          {result && (
-            <Card
-              className={`border ${
-                result.success
-                  ? "border-green-500 bg-green-500/20"
-                  : "border-red-500/50 bg-red-500/10"
-              }`}
-            >
-              <CardContent className="pt-6 pb-6">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-start gap-3">
-                    {result.success ? (
-                      <CheckCircle className="h-8 w-8 shrink-0 text-green-400" />
-                    ) : (
-                      <XCircle className="h-5 w-5 shrink-0 text-red-400" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className={`font-semibold text-lg ${
-                          result.success ? "text-green-400" : "text-red-400"
-                        }`}
-                      >
-                        {result.success ? "Escaneado correctamente" : "Error al escanear"}
-                      </p>
-                      <p className="mt-1 text-sm text-white/80">{result.message}</p>
-                      {result.success && result.ticket && (
-                        <div className="mt-3 space-y-1 text-sm text-white/80 rounded bg-black/20 p-3">
-                          <p>Mesa: {result.ticket.table_id}</p>
-                          <p>Nombre: {result.ticket.cover_name}</p>
-                          <p>Escaneado: {new Date().toLocaleString("es-MX")}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    onClick={dismissResult}
-                    className={`w-full ${
-                      result.success
-                        ? "bg-green-600 hover:bg-green-700 text-white"
-                        : "bg-red-600/80 hover:bg-red-700 text-white"
-                    }`}
-                  >
-                    Aceptar
-                  </Button>
-                  <p className="text-center text-xs text-white/50">
-                    {result.success ? "Pulsa Aceptar para escanear el siguiente ticket" : "Pulsa Aceptar para intentar de nuevo"}
-                  </p>
+          <Dialog open={!!result} onOpenChange={(open) => !open && dismissResult()}>
+            <DialogContent className="max-w-sm border-white/20 bg-black/95 text-white gap-4 text-center">
+              <DialogHeader>
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/10">
+                  {result?.success ? (
+                    <CheckCircle className="h-8 w-8 text-green-400" />
+                  ) : (
+                    <XCircle className="h-8 w-8 text-red-400" />
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                <DialogTitle className="text-lg text-white pt-2">
+                  {result?.success
+                    ? "El ticket fue escaneado correctamente"
+                    : result?.message?.toLowerCase().includes("ya fue utilizado")
+                      ? "El ticket ya fue escaneado"
+                      : result?.message ?? "Error al escanear"}
+                </DialogTitle>
+              </DialogHeader>
+              <Button
+                onClick={dismissResult}
+                className={`w-full ${
+                  result?.success
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-red-600/80 hover:bg-red-700 text-white"
+                }`}
+              >
+                Aceptar
+              </Button>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     </div>
