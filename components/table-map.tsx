@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { getTableCounts } from "@/lib/tables"
 
 type Table = {
@@ -87,8 +87,8 @@ export function TableMap({ selectedTable, onSelectTable, size: sizeProp, compact
   const compact = size === 'compact'
   const narrow = size === 'narrow'
   const small = compact || narrow
-  // Conteo de tickets (aprobados + usados) por mesa. Clave = id numérico ("32", "10", etc.)
   const [tableCounts, setTableCounts] = useState<Record<string, number>>({})
+  const retryOnceRef = useRef(false)
 
   useEffect(() => {
     loadTableCounts()
@@ -97,9 +97,26 @@ export function TableMap({ selectedTable, onSelectTable, size: sizeProp, compact
   }, [])
 
   const loadTableCounts = async () => {
+    // Primero intentar API (servidor con service role): todos los usuarios ven los mismos conteos, incluido recién registrados
+    try {
+      const res = await fetch('/api/tables/counts')
+      if (res.ok) {
+        const data = await res.json()
+        setTableCounts(data ?? {})
+        return
+      }
+    } catch {
+      // API no disponible (ej. sin SUPABASE_SERVICE_ROLE_KEY), usar fallback
+    }
+
     const { data } = await getTableCounts()
     if (data) {
       setTableCounts(data)
+      const isEmpty = Object.keys(data).length === 0
+      if (isEmpty && !retryOnceRef.current) {
+        retryOnceRef.current = true
+        setTimeout(loadTableCounts, 600)
+      }
     }
   }
 
@@ -107,8 +124,8 @@ export function TableMap({ selectedTable, onSelectTable, size: sizeProp, compact
     return tables.find((t) => t.position.row === row && t.position.col === col)
   }
 
-  // Ocupada = la mesa tiene al menos 5 tickets aprobados o usados (todas las mesas mismo mínimo)
-  const MIN_COVERS_OCCUPIED = 5
+  // Ocupada = la mesa tiene al menos 1 ticket aprobado o usado
+  const MIN_COVERS_OCCUPIED = 1
   const isTableOccupied = (tableId: number) => {
     const count = tableCounts[tableId.toString()] ?? 0
     return count >= MIN_COVERS_OCCUPIED
