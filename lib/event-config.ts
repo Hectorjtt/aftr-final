@@ -45,6 +45,8 @@ export const eventConfig = {
       { name: "Día del evento", price: 550 },
     ],
     online: 500,
+    /** Comisión por operación (transferencia o tarjeta). Se suma al total. */
+    commission: 30,
   },
   includes: [
     "Botella de Cortesía por Mesa",

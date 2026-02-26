@@ -99,8 +99,11 @@ export function PurchaseForm() {
 
   const proofRegister = register("proofOfPayment", { required: true })
   const quantity = watch("quantity") ?? formData.quantity ?? 0
-  const totalPrice = (quantity > 0 ? quantity : 0) * eventConfig.cover.online
+  const commission = eventConfig.cover.commission ?? 0
+  const subtotal = (quantity > 0 ? quantity : 0) * eventConfig.cover.online
+  const totalPrice = subtotal + commission
   const totalPriceFormatted = totalPrice.toLocaleString("es-MX")
+  const subtotalFormatted = subtotal.toLocaleString("es-MX")
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true)
@@ -441,9 +444,7 @@ export function PurchaseForm() {
                     )}
                   </div>
                   <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
-                    <p className="text-2xl font-bold text-orange-500">
-                      Total: {"$" + totalPriceFormatted}
-                    </p>
+                    <p className="text-2xl font-bold text-orange-500">Total: ${subtotalFormatted}</p>
                   </div>
                 </motion.div>
               )}
@@ -587,7 +588,7 @@ export function PurchaseForm() {
                     </Button>
                   </div>
                   <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
-                    <p className="text-xl font-bold text-orange-500">Total: ${totalPriceFormatted}</p>
+                    <p className="text-xl font-bold text-orange-500">Total: ${subtotalFormatted}</p>
                   </div>
                 </motion.div>
               )}
@@ -646,9 +647,21 @@ export function PurchaseForm() {
                         </div>
                         <p className="text-white">{eventConfig.payment.holder}</p>
                       </div>
-                      <div className="flex justify-between border-t border-white/10 pt-3">
-                        <span className="font-medium">Monto a transferir:</span>
-                        <span className="text-2xl font-bold text-orange-500">${totalPriceFormatted}</span>
+                      <div className="space-y-1 border-t border-white/10 pt-3">
+                        <div className="flex justify-between text-sm text-white/80">
+                          <span>Subtotal ({quantity} {quantity === 1 ? "cover" : "covers"}):</span>
+                          <span>${subtotalFormatted}</span>
+                        </div>
+                        {commission > 0 && (
+                          <div className="flex justify-between text-sm text-white/80">
+                            <span>Comisión:</span>
+                            <span>${commission.toLocaleString("es-MX")}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-1">
+                          <span className="font-medium">Monto a transferir:</span>
+                          <span className="text-2xl font-bold text-orange-500">${totalPriceFormatted}</span>
+                        </div>
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -707,9 +720,21 @@ export function PurchaseForm() {
                     <p className="mb-4 text-white/80">
                       Serás redirigido a un formulario seguro de Stripe para ingresar los datos de tu tarjeta.
                     </p>
-                    <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-4">
-                      <span className="font-medium text-white">Total a pagar:</span>
-                      <span className="text-2xl font-bold text-orange-500">${totalPriceFormatted}</span>
+                    <div className="space-y-1 border-t border-white/10 pt-4">
+                      <div className="flex justify-between text-sm text-white/80">
+                        <span>Subtotal ({quantity} {quantity === 1 ? "cover" : "covers"}):</span>
+                        <span>${subtotalFormatted}</span>
+                      </div>
+                      {commission > 0 && (
+                        <div className="flex justify-between text-sm text-white/80">
+                          <span>Comisión:</span>
+                          <span>${commission.toLocaleString("es-MX")}</span>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+                        <span className="font-medium text-white">Total a pagar:</span>
+                        <span className="text-2xl font-bold text-orange-500">${totalPriceFormatted}</span>
+                      </div>
                     </div>
                   </div>
                   {submitError && (

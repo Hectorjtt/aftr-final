@@ -6,10 +6,32 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
+
+const LADA_OPTIONS = [
+  { value: "52", label: "+52 México" },
+  { value: "33", label: "+33 Francia" },
+  { value: "49", label: "+49 Alemania" },
+  { value: "34", label: "+34 España" },
+  { value: "1", label: "+1 Estados Unidos" },
+  { value: "1", label: "+1 Canadá" },
+  { value: "57", label: "+57 Colombia" },
+  { value: "593", label: "+593 Ecuador" },
+  { value: "56", label: "+56 Chile" },
+  { value: "58", label: "+58 Venezuela" },
+  { value: "591", label: "+591 Bolivia" },
+  { value: "51", label: "+51 Perú" },
+  { value: "54", label: "+54 Argentina" },
+  { value: "55", label: "+55 Brasil" },
+  { value: "82", label: "+82 Corea del Sur" },
+  { value: "86", label: "+86 China" },
+  { value: "81", label: "+81 Japón" },
+]
 
 export function RegisterForm() {
   const [email, setEmail] = useState("")
+  const [lada, setLada] = useState("52")
   const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -41,6 +63,8 @@ export function RegisterForm() {
       return
     }
 
+    const fullPhone = `+${lada} ${phone.trim().replace(/\s/g, "")}`
+
     try {
       // Registrar usuario
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -56,7 +80,7 @@ export function RegisterForm() {
           user_id: data.user.id,
           role: 'client' as const,
           email,
-          phone: phone.trim() || null,
+          phone: fullPhone,
         }
         const { error: insertError } = await supabase.from('user_roles').insert(row)
 
@@ -137,21 +161,6 @@ export function RegisterForm() {
           </div>
 
           <div>
-            <Label htmlFor="phone" className="text-white">
-              Teléfono
-            </Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-              className="border-white/20 bg-white/5 text-white placeholder:text-white/40"
-              placeholder="Ej: 8116579043"
-            />
-          </div>
-
-          <div>
             <Label htmlFor="password" className="text-white">
               Contraseña
             </Label>
@@ -180,6 +189,36 @@ export function RegisterForm() {
               className="border-white/20 bg-white/5 text-white"
               placeholder="Repite tu contraseña"
             />
+          </div>
+
+          <div>
+            <Label className="text-white">
+              Teléfono
+            </Label>
+            <div className="flex gap-2 mt-1">
+              <Select value={lada} onValueChange={setLada}>
+                <SelectTrigger className="w-[130px] shrink-0 border-white/20 bg-white/5 text-white">
+                  <SelectValue placeholder="Lada" />
+                </SelectTrigger>
+                <SelectContent className="border-white/10 bg-black/95">
+                  {LADA_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-white focus:bg-white/10">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                className="flex-1 border-white/20 bg-white/5 text-white placeholder:text-white/40"
+                placeholder="Ej: 811 657 9043"
+              />
+            </div>
+            <p className="text-xs text-white/50 mt-1">Elige tu lada y escribe tu número sin lada</p>
           </div>
 
           {error && (
