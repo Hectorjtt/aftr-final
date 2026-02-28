@@ -54,10 +54,24 @@ Es la **clave secreta** de tu cuenta de Stripe. Sirve para que tu servidor (Next
      - **Valor:** tu clave **live** `sk_live_...` (no la de test).  
    - Guarda y vuelve a desplegar si hace falta.
 
+### Clave publicable (opcional)
+
+Si en el futuro usas Stripe en el navegador (por ejemplo Stripe.js), añade también:
+
+- **Nombre:** `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- **Valor:** la clave que empieza por `pk_live_...` (producción) o `pk_test_...` (pruebas).
+
+Para el flujo actual (solo Checkout con redirección) basta con `STRIPE_SECRET_KEY`.
+
 ### Resumen
 
 | Dónde        | Variable             | Valor        |
 |-------------|----------------------|-------------|
-| `.env.local` (desarrollo) | `STRIPE_SECRET_KEY` | `sk_test_...` |
+| `.env.local` (desarrollo) | `STRIPE_SECRET_KEY` | `sk_test_...` o `sk_live_...` |
 | Hosting (producción)     | `STRIPE_SECRET_KEY` | `sk_live_...` |
+| Opcional (producción)    | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_live_...` |
+
+### Importante
+
+**Nunca** subas las claves a GitHub ni las pegues en el código. Solo en `.env.local` (que está en `.gitignore`) y en las variables de entorno del hosting (Vercel, etc.).
 

@@ -81,7 +81,7 @@ function CompraSuccessContent() {
                     <CheckCircleIcon className="mx-auto mb-6 h-20 w-20 text-green-500" />
                     <h2 className="mb-4 text-3xl font-bold text-white">¡Pago recibido!</h2>
                     <p className="mb-8 text-pretty text-white/80">
-                      Tu pago con tarjeta se ha procesado correctamente. Verificaremos tu solicitud y te confirmaremos por correo. Revisa <strong>Mis Tickets</strong> cuando aprobemos tu compra.
+                      Tu pago con tarjeta se ha procesado correctamente. Tus tickets ya están listos en <strong>Mis Tickets</strong>.
                     </p>
                     <Button
                       onClick={() => (window.location.href = "/tickets")}

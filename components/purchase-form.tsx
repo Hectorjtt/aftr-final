@@ -105,6 +105,10 @@ export function PurchaseForm() {
   const totalPriceFormatted = totalPrice.toLocaleString("es-MX")
   const subtotalFormatted = subtotal.toLocaleString("es-MX")
 
+  // Para pruebas: pon un número (ej. 10) para cobrar ese monto en lugar del total. null = cobro real (530 etc.)
+  const STRIPE_TEST_AMOUNT: number | null = null
+  const amountForStripe = STRIPE_TEST_AMOUNT ?? totalPrice
+
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true)
     setSubmitError(null)
@@ -720,20 +724,27 @@ export function PurchaseForm() {
                     <p className="mb-4 text-white/80">
                       Serás redirigido a un formulario seguro de Stripe para ingresar los datos de tu tarjeta.
                     </p>
+                    {STRIPE_TEST_AMOUNT != null && (
+                      <p className="mb-3 rounded bg-amber-500/20 px-3 py-1.5 text-sm text-amber-300">Prueba: se cobrará $10 MXN</p>
+                    )}
                     <div className="space-y-1 border-t border-white/10 pt-4">
-                      <div className="flex justify-between text-sm text-white/80">
-                        <span>Subtotal ({quantity} {quantity === 1 ? "cover" : "covers"}):</span>
-                        <span>${subtotalFormatted}</span>
-                      </div>
-                      {commission > 0 && (
-                        <div className="flex justify-between text-sm text-white/80">
-                          <span>Comisión:</span>
-                          <span>${commission.toLocaleString("es-MX")}</span>
-                        </div>
+                      {STRIPE_TEST_AMOUNT == null && (
+                        <>
+                          <div className="flex justify-between text-sm text-white/80">
+                            <span>Subtotal ({quantity} {quantity === 1 ? "cover" : "covers"}):</span>
+                            <span>${subtotalFormatted}</span>
+                          </div>
+                          {commission > 0 && (
+                            <div className="flex justify-between text-sm text-white/80">
+                              <span>Comisión:</span>
+                              <span>${commission.toLocaleString("es-MX")}</span>
+                            </div>
+                          )}
+                        </>
                       )}
                       <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
                         <span className="font-medium text-white">Total a pagar:</span>
-                        <span className="text-2xl font-bold text-orange-500">${totalPriceFormatted}</span>
+                        <span className="text-2xl font-bold text-orange-500">${amountForStripe.toLocaleString("es-MX")}</span>
                       </div>
                     </div>
                   </div>
@@ -815,7 +826,7 @@ export function PurchaseForm() {
                       table_id: formData.table,
                       quantity: formData.quantity,
                       names: formData.names?.slice(0, formData.quantity) || [],
-                      total_price: totalPrice,
+                      total_price: amountForStripe,
                     }),
                   })
                   const data = await res.json().catch(() => ({}))

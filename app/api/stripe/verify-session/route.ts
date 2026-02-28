@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { supabaseService } from '@/lib/supabase-service'
+import { generateQRCode } from '@/lib/tickets'
+import { sendTicketApprovedEmail } from '@/lib/email'
 import Stripe from 'stripe'
 
 export async function GET(request: NextRequest) {
@@ -71,15 +74,98 @@ export async function GET(request: NextRequest) {
     }
 
     const reference = session.id.slice(-9).replace(/\D/g, '') || String(Math.floor(10000 + Math.random() * 90000))
+    const totalPrice = (session.amount_total ?? 0) / 100
+    const namesList = names.slice(0, quantity)
 
+    // Pago con tarjeta: crear solicitud aprobada y tickets directamente (sin pasar por aprobación manual)
+    if (supabaseService) {
+      const { data: inserted, error: insertError } = await supabaseService
+        .from('purchase_requests')
+        .insert({
+          stripe_session_id: sessionId,
+          user_id: metadata.user_id,
+          table_id: metadata.table_id,
+          quantity,
+          names: namesList,
+          proof_of_payment_url: null,
+          total_price: totalPrice,
+          status: 'approved',
+          reference,
+          payment_method: 'card',
+        })
+        .select('id')
+        .single()
+
+      if (insertError) {
+        if (insertError.code === '23505') {
+          const ref2 = String(Math.floor(10000 + Math.random() * 90000))
+          const { data: inserted2, error: retryError } = await supabaseService
+            .from('purchase_requests')
+            .insert({
+              stripe_session_id: sessionId,
+              user_id: metadata.user_id,
+              table_id: metadata.table_id,
+              quantity,
+              names: namesList,
+              proof_of_payment_url: null,
+              total_price: totalPrice,
+              status: 'approved',
+              reference: ref2,
+              payment_method: 'card',
+            })
+            .select('id')
+            .single()
+          if (retryError) {
+            console.error('[stripe verify-session] insert error:', retryError)
+            return NextResponse.json({ error: 'Error al guardar la solicitud' }, { status: 500 })
+          }
+          const prId = inserted2?.id
+          if (prId) {
+            const tickets = namesList.map((name) => ({
+              purchase_request_id: prId,
+              user_id: metadata.user_id,
+              qr_code: generateQRCode(),
+              cover_name: (name || '').trim(),
+              table_id: metadata.table_id,
+              status: 'approved' as const,
+            }))
+            await supabaseService.from('tickets').insert(tickets)
+            const { data: ur } = await supabaseService.from('user_roles').select('email').eq('user_id', metadata.user_id).maybeSingle()
+            if (ur?.email?.trim()) sendTicketApprovedEmail(ur.email.trim()).catch(() => {})
+          }
+        } else {
+          console.error('[stripe verify-session] insert error:', insertError)
+          return NextResponse.json({ error: 'Error al guardar la solicitud' }, { status: 500 })
+        }
+      } else if (inserted?.id) {
+        const tickets = namesList.map((name) => ({
+          purchase_request_id: inserted.id,
+          user_id: metadata.user_id,
+          qr_code: generateQRCode(),
+          cover_name: (name || '').trim(),
+          table_id: metadata.table_id,
+          status: 'approved' as const,
+        }))
+        const { error: ticketsError } = await supabaseService.from('tickets').insert(tickets)
+        if (ticketsError) {
+          console.error('[stripe verify-session] tickets error:', ticketsError)
+          return NextResponse.json({ error: 'Error al crear los tickets' }, { status: 500 })
+        }
+        const { data: ur } = await supabaseService.from('user_roles').select('email').eq('user_id', metadata.user_id).maybeSingle()
+        if (ur?.email?.trim()) sendTicketApprovedEmail(ur.email.trim()).catch(() => {})
+      }
+      return NextResponse.json({ success: true })
+    }
+
+    // Fallback sin service role: crear solo la solicitud pendiente (el admin tendrá que aprobar)
     const { error } = await supabase.from('purchase_requests').insert({
       stripe_session_id: sessionId,
       user_id: metadata.user_id,
       table_id: metadata.table_id,
       quantity,
-      names: names.slice(0, quantity),
+      names: namesList,
       proof_of_payment_url: null,
-      total_price: (session.amount_total ?? 0) / 100,
+      total_price: totalPrice,
       status: 'pending',
       reference,
       payment_method: 'card',
@@ -93,9 +179,9 @@ export async function GET(request: NextRequest) {
           user_id: metadata.user_id,
           table_id: metadata.table_id,
           quantity,
-          names: names.slice(0, quantity),
+          names: namesList,
           proof_of_payment_url: null,
-          total_price: (session.amount_total ?? 0) / 100,
+          total_price: totalPrice,
           status: 'pending',
           reference: ref2,
           payment_method: 'card',

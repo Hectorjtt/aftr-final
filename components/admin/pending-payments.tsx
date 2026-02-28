@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { getPendingPurchaseRequests, approvePurchaseRequest, rejectPurchaseRequest } from "@/lib/admin"
+import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -88,6 +89,17 @@ export function PendingPayments() {
         const result = await approvePurchaseRequest(id)
         if (result?.success) {
           await loadRequests()
+          // Notificar por correo al usuario (sesión está en localStorage, enviamos token en header)
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+            if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+            fetch('/api/notify-ticket-approved', {
+              method: 'POST',
+              headers,
+              credentials: 'include',
+              body: JSON.stringify({ purchaseRequestId: id }),
+            }).catch(() => {})
+          })
         } else {
           alert(`Error al aprobar: ${result?.error || 'Error desconocido'}`)
         }
