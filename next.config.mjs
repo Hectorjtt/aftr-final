@@ -6,8 +6,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Asegurar que Fast Refresh esté habilitado (habilitado por defecto en desarrollo)
   reactStrictMode: true,
+  // Que /favicon.ico sirva nuestro icono (evita que se use el de Vercel)
+  async rewrites() {
+    return [
+      { source: '/favicon.ico', destination: '/icon.png' },
+    ]
+  },
 }
 
 export default nextConfig
